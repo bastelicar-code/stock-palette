@@ -41,7 +41,6 @@ input:focus,select:focus{border-color:#1a1a1a}
 .badge-blue{background:#dbeafe;color:#1e40af}
 .badge-green{background:#dcfce7;color:#15803d}
 .badge-gray{background:#f3f4f6;color:#6b7280}
-.badge-orange{background:#fef3c7;color:#92400e}
 .row{display:flex;align-items:flex-start;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f0f0;gap:8px}
 .row:last-child{border-bottom:none}
 .row-left{flex:1;min-width:0}
@@ -49,8 +48,7 @@ input:focus,select:focus{border-color:#1a1a1a}
 .row-sub{font-size:11px;color:#888;margin-top:2px}
 .row-img{width:40px;height:40px;border-radius:6px;object-fit:contain;background:#f9fafb;border:1px solid #eee;flex-shrink:0}
 .row-img-placeholder{width:40px;height:40px;border-radius:6px;background:#f3f4f6;border:1px solid #eee;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px}
-.scan-zone{border:2px dashed #ddd;border-radius:12px;padding:20px;text-align:center;cursor:pointer;background:#fafafa;transition:background 0.2s}
-.scan-zone:active{background:#f0f0f0}
+.scan-zone{border:2px dashed #ddd;border-radius:12px;padding:20px;text-align:center;cursor:pointer;background:#fafafa}
 .scan-zone svg{width:36px;height:36px;color:#bbb;margin-bottom:6px}
 .scan-zone p{font-size:13px;color:#999}
 #video-wrap{display:none;border-radius:12px;overflow:hidden;background:#000;position:relative}
@@ -60,7 +58,7 @@ input:focus,select:focus{border-color:#1a1a1a}
 .scan-line{position:absolute;left:0;right:0;height:2px;background:rgba(255,80,80,0.8);animation:scanline 2s ease-in-out infinite}
 @keyframes scanline{0%{top:0}50%{top:calc(100% - 2px)}100%{top:0}}
 .scan-hint{position:absolute;bottom:10px;left:0;right:0;text-align:center;color:rgba(255,255,255,0.8);font-size:12px}
-.status{font-size:12px;text-align:center;padding:5px;min-height:20px;font-weight:500;transition:color 0.3s}
+.status{font-size:12px;text-align:center;padding:5px;min-height:20px;font-weight:500}
 .result-ok{background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:13px;margin-bottom:8px}
 .result-ok .palette-num{font-size:28px;font-weight:800;color:#15803d}
 .result-ok .detail{font-size:13px;color:#166534;margin-top:4px}
@@ -77,20 +75,51 @@ input:focus,select:focus{border-color:#1a1a1a}
 .stat-num{font-size:22px;font-weight:800;color:#1a1a1a}
 .stat-label{font-size:11px;color:#888;margin-top:2px}
 .empty{font-size:13px;color:#aaa;padding:16px 0;text-align:center}
-.product-loading{display:flex;align-items:center;gap:6px;font-size:12px;color:#888;margin-top:4px}
-.spinner{width:12px;height:12px;border:2px solid #ddd;border-top-color:#888;border-radius:50%;animation:spin 0.6s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
 .edit-form{background:#f9fafb;border-radius:8px;padding:10px;margin-top:6px;display:none}
 .edit-form.open{display:block}
 .palette-card{background:#fff;border-radius:12px;border:1px solid #e5e5e5;padding:13px;margin-bottom:10px}
 .palette-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.search-highlight{background:#fef9c3;border-radius:3px;padding:0 2px}
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.modal-bg.hidden{display:none}
+.modal{background:#fff;border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:480px}
+.modal h3{font-size:16px;font-weight:700;margin-bottom:8px}
+.modal p{font-size:13px;color:#666;margin-bottom:12px}
+.modal-code{font-family:monospace;font-size:13px;background:#f3f4f6;padding:6px 10px;border-radius:6px;margin-bottom:12px;color:#888}
+.modal-btns{display:flex;gap:8px;margin-top:10px}
 </style>
 </head>
 <body>
 
+<!-- MODAL NOM PRODUIT -->
+<div class="modal-bg hidden" id="modal-nom">
+  <div class="modal">
+    <h3>Produit non reconnu</h3>
+    <p>Ce produit n'est pas dans la base de données. Tu peux lui donner un nom ou l'enregistrer avec son code-barre.</p>
+    <div class="modal-code" id="modal-code-display"></div>
+    <input type="text" id="modal-nom-input" placeholder="Nom du produit (optionnel)..." />
+    <div class="modal-btns">
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="confirmNom()">Enregistrer</button>
+      <button class="btn" style="flex:1;justify-content:center" onclick="skipNom()">Sans nom</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RENOMMER PALETTE -->
+<div class="modal-bg hidden" id="modal-rename">
+  <div class="modal">
+    <h3>Renommer la palette</h3>
+    <p>Entre un nouveau nom pour cette palette.</p>
+    <input type="text" id="modal-rename-input" placeholder="Ex: Vins, Crèmerie, PL001..." maxlength="20" />
+    <div class="modal-btns">
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="confirmRename()">Renommer</button>
+      <button class="btn" style="flex:1;justify-content:center" onclick="closeModal('modal-rename')">Annuler</button>
+    </div>
+  </div>
+</div>
+
 <div id="prenom-screen" class="prenom-screen">
-  <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 3H8a2 2 0 00-2 2v2h12V5a2 2 0 00-2-2z"/></svg>
+  <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round"><path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 3H8a2 2 0 00-2 2v2h12V5a2 2 0 00-2-2z"/></svg>
   <h2>Stock Palette</h2>
   <p>Entre ton prénom pour commencer.<br>Il apparaîtra quand tu ajoutes ou retires un produit.</p>
   <input type="text" id="prenom-input" placeholder="Ton prénom..." style="max-width:260px;text-align:center;font-size:16px" maxlength="20" />
@@ -103,7 +132,7 @@ input:focus,select:focus{border-color:#1a1a1a}
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 3H8a2 2 0 00-2 2v2h12V5a2 2 0 00-2-2z"/></svg>
     <h1>Stock Palette</h1>
     <span id="user-name" style="font-size:11px;color:#aaa"></span>
-    <button class="wake-btn" id="wake-btn" onclick="toggleWakeLock()" title="Garder l'écran allumé">Écran actif</button>
+    <button class="wake-btn" id="wake-btn" onclick="toggleWakeLock()">Écran actif</button>
     <div class="sync-dot ok" id="sync-dot"></div>
   </div>
   <div class="tabs">
@@ -119,6 +148,10 @@ input:focus,select:focus{border-color:#1a1a1a}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1" fill="currentColor"/><circle cx="3" cy="12" r="1" fill="currentColor"/><circle cx="3" cy="18" r="1" fill="currentColor"/></svg>
       Palettes
     </button>
+    <button class="tab" onclick="showPage('reglages')" id="tab-reglages">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Réglages
+    </button>
   </div>
 
   <!-- SCANNER -->
@@ -133,7 +166,6 @@ input:focus,select:focus{border-color:#1a1a1a}
         </button>
       </div>
     </div>
-
     <div class="card">
       <div class="card-title">Ajouter un produit</div>
       <div class="scan-zone" onclick="startCamera()" id="scan-zone">
@@ -143,9 +175,7 @@ input:focus,select:focus{border-color:#1a1a1a}
       <div id="video-wrap">
         <video id="video" autoplay playsinline muted></video>
         <div class="scan-overlay">
-          <div class="scan-frame">
-            <div class="scan-line"></div>
-          </div>
+          <div class="scan-frame"><div class="scan-line"></div></div>
         </div>
         <div class="scan-hint">Centrez le code-barre dans le cadre</div>
         <button class="btn btn-danger btn-full" style="border-radius:0;border:none;border-top:1px solid #fee2e2" onclick="stopCamera()">Arrêter le scan</button>
@@ -174,7 +204,6 @@ input:focus,select:focus{border-color:#1a1a1a}
       </div>
       <div class="status" id="scan-status"></div>
     </div>
-
     <div class="card" id="recent-card" style="display:none">
       <div class="card-title">Derniers ajouts</div>
       <div id="recent-list"></div>
@@ -186,7 +215,7 @@ input:focus,select:focus{border-color:#1a1a1a}
     <div class="card">
       <div class="card-title">Trouver un produit</div>
       <input type="text" id="search-input" placeholder="Nom, code-barre ou derniers chiffres..." oninput="doSearch()" />
-      <div style="font-size:11px;color:#aaa;margin-top:6px">Exemples : "coca", "3456", "vin rouge"</div>
+      <div style="font-size:11px;color:#aaa;margin-top:6px">Exemples : "coca", "456", "vin rouge"</div>
     </div>
     <div id="search-result"></div>
   </div>
@@ -199,11 +228,25 @@ input:focus,select:focus{border-color:#1a1a1a}
       Créer une nouvelle palette
     </button>
   </div>
-</div>
 
-<audio id="beep-ok" preload="auto">
-  <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbz6hNBSVRjcLp3bB8PUOB" type="audio/wav">
-</audio>
+  <!-- REGLAGES -->
+  <div class="page" id="page-reglages">
+    <div class="card">
+      <div class="card-title">Préfixe des palettes</div>
+      <p style="font-size:13px;color:#666;margin-bottom:10px">Définit le début du numéro de chaque nouvelle palette.<br>Exemple : "PL" → PL001, PL002...</p>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="prefixe-input" placeholder="P" maxlength="5" style="text-transform:uppercase" />
+        <button class="btn btn-primary" onclick="savePrefixe()">Sauvegarder</button>
+      </div>
+      <div style="font-size:12px;color:#aaa;margin-top:8px" id="prefixe-preview"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Mon profil</div>
+      <p style="font-size:13px;color:#666;margin-bottom:10px">Connecté en tant que <strong id="profil-nom"></strong></p>
+      <button class="btn btn-danger" onclick="changePrenom()">Changer de prénom</button>
+    </div>
+  </div>
+</div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
@@ -228,9 +271,26 @@ if ('serviceWorker' in navigator) {
 
 let palettes = {};
 let prenom = localStorage.getItem('sp_prenom') || '';
+let prefixe = localStorage.getItem('sp_prefixe') || 'P';
 let codeReader = null;
 let scanning = false;
 let wakeLock = null;
+let pendingCode = null;
+let pendingRenameId = null;
+let currentPage = 'scanner';
+
+// Historique navigation pour bouton retour
+const pageHistory = ['scanner'];
+window.addEventListener('popstate', () => {
+  if (pageHistory.length > 1) {
+    pageHistory.pop();
+    const prev = pageHistory[pageHistory.length - 1];
+    showPageInternal(prev);
+  } else {
+    history.pushState(null, '', location.href);
+  }
+});
+history.pushState(null, '', location.href);
 
 // Wake Lock
 window.toggleWakeLock = async function() {
@@ -251,12 +311,12 @@ window.toggleWakeLock = async function() {
         btn.textContent = 'Écran actif';
       });
     } catch(e) {
-      showStatus('Wake lock non supporté sur ce téléphone', 'warn');
+      showStatus('Non supporté sur ce téléphone', 'warn');
     }
   }
 }
 
-// Sync status
+// Sync
 function setSyncStatus(s) {
   document.getElementById('sync-dot').className = 'sync-dot ' + s;
   document.getElementById('offline-banner').style.display = s === 'offline' ? 'block' : 'none';
@@ -270,6 +330,8 @@ if (prenom) {
   document.getElementById('prenom-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('user-name').textContent = prenom;
+  document.getElementById('profil-nom').textContent = prenom;
+  initPrefixe();
   initFirestore();
 }
 
@@ -281,10 +343,41 @@ window.savePrenom = function() {
   document.getElementById('prenom-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('user-name').textContent = prenom;
+  document.getElementById('profil-nom').textContent = prenom;
+  initPrefixe();
   initFirestore();
 }
+
+window.changePrenom = function() {
+  if (!confirm('Changer de prénom ?')) return;
+  localStorage.removeItem('sp_prenom');
+  location.reload();
+}
+
 document.getElementById('prenom-input').addEventListener('keydown', e => { if(e.key==='Enter') window.savePrenom(); });
 
+// Prefixe
+function initPrefixe() {
+  document.getElementById('prefixe-input').value = prefixe;
+  updatePrefixePreview();
+}
+
+window.savePrefixe = function() {
+  const v = document.getElementById('prefixe-input').value.trim().toUpperCase() || 'P';
+  prefixe = v;
+  localStorage.setItem('sp_prefixe', v);
+  document.getElementById('prefixe-input').value = v;
+  updatePrefixePreview();
+  showStatus('Préfixe sauvegardé : ' + v, 'ok');
+}
+
+function updatePrefixePreview() {
+  const v = (document.getElementById('prefixe-input').value.trim().toUpperCase() || 'P');
+  document.getElementById('prefixe-preview').textContent = 'Aperçu : ' + v + '001, ' + v + '002, ' + v + '003...';
+}
+document.getElementById('prefixe-input').addEventListener('input', updatePrefixePreview);
+
+// Firebase
 function initFirestore() {
   setSyncStatus('syncing');
   onSnapshot(collection(db, 'palettes'), snap => {
@@ -309,9 +402,10 @@ function renderSelect() {
   Object.keys(palettes).sort().forEach(id => {
     const p = palettes[id];
     const actifs = (p.produits||[]).filter(x => !x.sorti).length;
+    const label = p.label ? p.label + ' (' + id + ')' : id;
     const o = document.createElement('option');
     o.value = id;
-    o.textContent = id + (p.cloturee ? ' [clôturée]' : '') + ' — ' + actifs + ' en stock';
+    o.textContent = label + (p.cloturee ? ' [clôt.]' : '') + ' — ' + actifs + ' en stock';
     sel.appendChild(o);
   });
   if (cur && palettes[cur]) sel.value = cur;
@@ -325,15 +419,55 @@ window.onPaletteChange = function() {
 
 window.newPalette = async function() {
   setSyncStatus('syncing');
-  const ids = Object.keys(palettes).map(id => parseInt(id.replace('P',''))).filter(n => !isNaN(n));
+  const ids = Object.keys(palettes)
+    .filter(id => id.startsWith(prefixe))
+    .map(id => parseInt(id.replace(prefixe, '')))
+    .filter(n => !isNaN(n));
   const next = ids.length ? Math.max(...ids) + 1 : 1;
-  const id = 'P' + String(next).padStart(3,'0');
+  const id = prefixe + String(next).padStart(3, '0');
   await setDoc(doc(db, 'palettes', id), {
     produits: [], historique: [], cloturee: false,
-    creee: new Date().toLocaleDateString('fr-FR'), creePar: prenom
+    creee: new Date().toLocaleDateString('fr-FR'), creePar: prenom, label: ''
   });
   setTimeout(() => { document.getElementById('palette-select').value = id; renderRecent(id); }, 500);
   showStatus('Palette ' + id + ' créée', 'ok');
+}
+
+// Renommer palette
+window.openRename = function(pid) {
+  pendingRenameId = pid;
+  const p = palettes[pid];
+  document.getElementById('modal-rename-input').value = p.label || '';
+  document.getElementById('modal-rename').classList.remove('hidden');
+  setTimeout(() => document.getElementById('modal-rename-input').focus(), 100);
+}
+
+window.confirmRename = async function() {
+  if (!pendingRenameId) return;
+  const v = document.getElementById('modal-rename-input').value.trim();
+  await updateDoc(doc(db, 'palettes', pendingRenameId), { label: v });
+  closeModal('modal-rename');
+  pendingRenameId = null;
+}
+
+window.closeModal = function(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+
+// Modal nom produit
+window.confirmNom = function() {
+  if (!pendingCode) return;
+  const nom = document.getElementById('modal-nom-input').value.trim();
+  document.getElementById('modal-nom').classList.add('hidden');
+  addProductFinal(pendingCode.code, nom || pendingCode.code, null, null);
+  pendingCode = null;
+}
+
+window.skipNom = function() {
+  if (!pendingCode) return;
+  document.getElementById('modal-nom').classList.add('hidden');
+  addProductFinal(pendingCode.code, pendingCode.code, null, null);
+  pendingCode = null;
 }
 
 // Open Food Facts
@@ -342,11 +476,14 @@ async function fetchProductInfo(code) {
     const r = await fetch('https://world.openfoodfacts.org/api/v0/product/' + code + '.json');
     const data = await r.json();
     if (data.status === 1 && data.product) {
-      return {
-        name: data.product.product_name_fr || data.product.product_name || data.product.brands || code,
-        image: data.product.image_front_small_url || data.product.image_url || null,
-        brand: data.product.brands || ''
-      };
+      const name = data.product.product_name_fr || data.product.product_name || data.product.brands || '';
+      if (name) {
+        return {
+          name,
+          image: data.product.image_front_small_url || null,
+          brand: data.product.brands || ''
+        };
+      }
     }
   } catch(e) {}
   return null;
@@ -355,11 +492,26 @@ async function fetchProductInfo(code) {
 window.addManual = function() {
   const v = document.getElementById('manual-input').value.trim();
   if (!v) return;
-  addProduct(v, v, null, null);
+  addProductFinal(v, v, null, null);
   document.getElementById('manual-input').value = '';
 }
 
-async function addProduct(code, name, image, brand) {
+async function addProduct(code) {
+  showStatus('Code détecté — recherche du produit...', 'ok');
+  const info = await fetchProductInfo(code);
+  if (info && info.name) {
+    addProductFinal(code, info.name, info.image, info.brand);
+  } else {
+    // Produit non trouvé : afficher modal pour nom
+    pendingCode = { code };
+    document.getElementById('modal-code-display').textContent = code;
+    document.getElementById('modal-nom-input').value = '';
+    document.getElementById('modal-nom').classList.remove('hidden');
+    setTimeout(() => document.getElementById('modal-nom-input').focus(), 100);
+  }
+}
+
+async function addProductFinal(code, name, image, brand) {
   const pid = document.getElementById('palette-select').value;
   if (!pid) { showStatus('Choisissez une palette', 'warn'); return; }
   const p = palettes[pid];
@@ -382,7 +534,7 @@ async function addProduct(code, name, image, brand) {
   setSyncStatus('syncing');
   await updateDoc(doc(db, 'palettes', pid), { produits, historique });
   playBeep();
-  showStatus('Ajouté à ' + pid + ' : ' + (name||code), 'ok');
+  showStatus('Ajouté : ' + (name||code), 'ok');
 }
 
 function playBeep() {
@@ -417,15 +569,8 @@ window.startCamera = async function() {
     await codeReader.decodeFromVideoDevice(null, 'video', async (result, err) => {
       if (result && scanning) {
         scanning = false;
-        const code = result.getText();
         stopCamera();
-        showStatus('Code détecté : ' + code + ' — recherche produit...', 'ok');
-        const info = await fetchProductInfo(code);
-        if (info) {
-          addProduct(code, info.name, info.image, info.brand);
-        } else {
-          addProduct(code, code, null, null);
-        }
+        await addProduct(result.getText());
       }
     });
   } catch(e) {
@@ -448,7 +593,7 @@ function showStatus(msg, type) {
   if (type === 'ok') setTimeout(() => { if(el.textContent === msg) el.textContent = ''; }, 4000);
 }
 
-function productHTML(pr, pid, showEdit) {
+function productHTML(pr, pid) {
   const img = pr.image
     ? `<img src="${pr.image}" class="row-img" loading="lazy" onerror="this.style.display='none'" />`
     : `<div class="row-img-placeholder">📦</div>`;
@@ -457,26 +602,29 @@ function productHTML(pr, pid, showEdit) {
     ${img}
     <div class="row-left">
       <div class="row-name">${pr.name}</div>
-      <div class="row-sub">${pr.qty} ${pr.cond}${pr.brand ? ' · ' + pr.brand : ''} · ${pr.heure} · ${pr.ajoutePar}</div>
-      ${pr.sorti ? `<div style="font-size:11px;color:#dc2626;margin-top:2px">Sorti ${pr.sortieHeure||''} par ${pr.sortiePar||''}</div>` : ''}
-      ${showEdit && !pr.sorti ? `
+      <div class="row-sub">${pr.qty} ${pr.cond}${pr.brand?' · '+pr.brand:''} · ${pr.heure} · ${pr.ajoutePar}</div>
+      <div class="row-sub" style="font-family:monospace;font-size:10px;color:#bbb">${pr.code}</div>
+      ${pr.sorti?`<div style="font-size:11px;color:#dc2626;margin-top:2px">Sorti ${pr.sortieHeure||''} par ${pr.sortiePar||''}</div>`:''}
+      ${!pr.sorti?`
         <div class="edit-form" id="${editId}">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
             <div><label style="font-size:11px;color:#888;display:block;margin-bottom:3px">Quantité</label>
-            <input type="number" id="eq-${pr.id}" value="${pr.qty}" min="1" style="text-align:center;padding:6px" /></div>
+            <input type="number" id="eq-${pr.id}" value="${pr.qty}" min="1" style="text-align:center;padding:6px"/></div>
             <div><label style="font-size:11px;color:#888;display:block;margin-bottom:3px">Conditionnement</label>
             <select id="ec-${pr.id}" style="padding:6px">
-              ${['unité','carton','palette','pack','caisse'].map(c => `<option${c===pr.cond?' selected':''}>${c}</option>`).join('')}
+              ${['unité','carton','palette','pack','caisse'].map(c=>`<option${c===pr.cond?' selected':''}>${c}</option>`).join('')}
             </select></div>
           </div>
+          <input type="text" id="en-${pr.id}" value="${pr.name}" placeholder="Nom du produit" style="margin-bottom:6px;padding:6px" />
           <button class="btn btn-primary btn-full" style="font-size:12px;padding:6px" onclick="saveEdit('${pid}','${pr.id}')">Enregistrer</button>
-        </div>` : ''}
+        </div>`:''
+      }
     </div>
     <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0">
       ${pr.sorti
         ? '<span class="badge badge-gray">Sorti</span>'
         : `<button class="btn btn-success" style="padding:5px 8px;font-size:11px" onclick="retirerProduit('${pid}','${pr.id}')">Sortir</button>
-           ${showEdit ? `<button class="btn" style="padding:4px 8px;font-size:11px" onclick="toggleEdit('${pr.id}')">Modifier</button>` : ''}`}
+           <button class="btn" style="padding:4px 8px;font-size:11px" onclick="toggleEdit('${pr.id}')">Modifier</button>`}
     </div>
   </div>`;
 }
@@ -489,7 +637,7 @@ function renderRecent(pid) {
   const prods = [...(p.produits||[])].reverse().slice(0, 8);
   if (!prods.length) { card.style.display='none'; return; }
   card.style.display = 'block';
-  list.innerHTML = prods.map(pr => productHTML(pr, pid, true)).join('');
+  list.innerHTML = prods.map(pr => productHTML(pr, pid)).join('');
 }
 
 window.toggleEdit = function(prodId) {
@@ -502,15 +650,15 @@ window.saveEdit = async function(pid, prodId) {
   if (!p) return;
   const newQty = parseInt(document.getElementById('eq-' + prodId).value) || 1;
   const newCond = document.getElementById('ec-' + prodId).value;
+  const newName = document.getElementById('en-' + prodId).value.trim() || '';
   const heure = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
   const produits = (p.produits||[]).map(pr =>
-    pr.id === prodId ? {...pr, qty: newQty, cond: newCond} : pr
+    pr.id === prodId ? {...pr, qty:newQty, cond:newCond, name:newName||pr.name} : pr
   );
   const prod = (p.produits||[]).find(pr => pr.id === prodId);
-  const hist = { action:'modification', name: prod?.name, qty: newQty, cond: newCond, heure, par: prenom };
-  const historique = [...(p.historique||[]), hist];
+  const hist = { action:'modification', name:newName||prod?.name, qty:newQty, cond:newCond, heure, par:prenom };
   setSyncStatus('syncing');
-  await updateDoc(doc(db, 'palettes', pid), { produits, historique });
+  await updateDoc(doc(db, 'palettes', pid), { produits, historique:[...(p.historique||[]),hist] });
   showStatus('Modifié', 'ok');
 }
 
@@ -524,9 +672,8 @@ window.retirerProduit = async function(pid, prodId) {
     pr.id === prodId ? {...pr, sorti:true, sortiePar:prenom, sortieHeure:heure} : pr
   );
   const hist = { action:'sortie', name:prod?.name, qty:prod?.qty, cond:prod?.cond, heure, par:prenom };
-  const historique = [...(p.historique||[]), hist];
   setSyncStatus('syncing');
-  await updateDoc(doc(db, 'palettes', pid), { produits, historique });
+  await updateDoc(doc(db, 'palettes', pid), { produits, historique:[...(p.historique||[]),hist] });
 }
 
 window.cloturerPalette = async function(pid) {
@@ -561,13 +708,14 @@ function renderPalettesPage() {
     const actifs = (p.produits||[]).filter(x => !x.sorti).length;
     const sortis = total - actifs;
     const hist = [...(p.historique||[])].reverse().slice(0, 8);
+    const label = p.label ? p.label + ' (' + id + ')' : id;
     return `<div class="palette-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:18px;font-weight:800">${id}</span>
-          <span class="badge ${p.cloturee ? 'badge-gray' : 'badge-blue'}">${p.cloturee ? 'Clôturée' : 'Ouverte'}</span>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:18px;font-weight:800">${label}</span>
+          <span class="badge ${p.cloturee?'badge-gray':'badge-blue'}">${p.cloturee?'Clôturée':'Ouverte'}</span>
         </div>
-        <span style="font-size:11px;color:#aaa">Créée le ${p.creee||''}</span>
+        <span style="font-size:11px;color:#aaa">${p.creee||''}</span>
       </div>
       <div class="stat-row">
         <div class="stat"><div class="stat-num">${actifs}</div><div class="stat-label">En stock</div></div>
@@ -575,18 +723,19 @@ function renderPalettesPage() {
       </div>
       <div id="detail-${id}" style="display:none">
         <div style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Produits</div>
-        ${(p.produits||[]).length ? (p.produits||[]).map(pr => productHTML(pr, id, true)).join('') : '<p class="empty">Aucun produit</p>'}
+        ${(p.produits||[]).length?(p.produits||[]).map(pr=>productHTML(pr,id)).join(''):'<p class="empty">Aucun produit</p>'}
         <div style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;margin:10px 0 6px">Historique</div>
-        ${hist.length ? hist.map(h => `
+        ${hist.length?hist.map(h=>`
           <div style="font-size:12px;padding:5px 0;border-bottom:1px solid #f5f5f5;color:${h.action==='ajout'?'#15803d':h.action==='sortie'?'#dc2626':'#666'}">
             ${h.action==='ajout'?'+ Ajout':h.action==='sortie'?'- Sortie':'✎ Modif'} — ${h.name||''} (${h.qty||''} ${h.cond||''}) · ${h.heure} · <strong>${h.par}</strong>
-          </div>`).join('') : '<p class="empty">Aucun historique</p>'}
+          </div>`).join(''):'<p class="empty">Aucun historique</p>'}
       </div>
       <div class="palette-actions">
         <button class="btn" style="font-size:12px;padding:6px 10px" onclick="toggleDetail('${id}')">Détail</button>
+        <button class="btn" style="font-size:12px;padding:6px 10px" onclick="openRename('${id}')">Renommer</button>
         ${p.cloturee
-          ? `<button class="btn btn-success" style="font-size:12px;padding:6px 10px" onclick="rouvrirPalette('${id}')">Rouvrir</button>`
-          : `<button class="btn" style="font-size:12px;padding:6px 10px" onclick="cloturerPalette('${id}')">Clôturer</button>`}
+          ?`<button class="btn btn-success" style="font-size:12px;padding:6px 10px" onclick="rouvrirPalette('${id}')">Rouvrir</button>`
+          :`<button class="btn" style="font-size:12px;padding:6px 10px" onclick="cloturerPalette('${id}')">Clôturer</button>`}
         <button class="btn btn-danger" style="font-size:12px;padding:6px 10px;margin-left:auto" onclick="supprimerPalette('${id}')">Supprimer</button>
       </div>
     </div>`;
@@ -617,22 +766,23 @@ window.doSearch = function() {
   }
   res.innerHTML = found.map(f => {
     const img = f.image
-      ? `<img src="${f.image}" style="width:48px;height:48px;object-fit:contain;border-radius:6px;background:#f9fafb;border:1px solid #eee;margin-right:10px;float:left" />`
+      ? `<img src="${f.image}" style="width:48px;height:48px;object-fit:contain;border-radius:6px;background:#f9fafb;border:1px solid #eee;margin-right:10px;float:left"/>`
       : `<div style="width:48px;height:48px;border-radius:6px;background:#f3f4f6;display:inline-flex;align-items:center;justify-content:center;font-size:22px;margin-right:10px;float:left">📦</div>`;
+    const palLabel = palettes[f.pid]?.label ? palettes[f.pid].label + ' (' + f.pid + ')' : f.pid;
     return `<div class="result-ok">
       <div style="overflow:hidden">
         ${img}
         <div>
           <div style="font-size:11px;color:#15803d;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Trouvé</div>
-          <div class="palette-num">Palette ${f.pid}</div>
-          <div class="detail"><strong>${f.name}</strong>${f.brand ? ' — ' + f.brand : ''}</div>
+          <div class="palette-num">Palette ${palLabel}</div>
+          <div class="detail"><strong>${f.name}</strong>${f.brand?' — '+f.brand:''}</div>
           <div class="detail">${f.qty} ${f.cond} · Ajouté à ${f.heure} par ${f.ajoutePar}</div>
           <div class="detail" style="font-family:monospace;font-size:11px;margin-top:2px;color:#aaa">${f.code}</div>
         </div>
       </div>
       <div style="clear:both;margin-top:10px;display:flex;gap:6px">
         <button class="btn btn-danger" style="font-size:12px;padding:6px 12px;flex:1;justify-content:center" onclick="retirerDepuisRecherche('${f.pid}','${f.id}')">Marquer sorti en rayon</button>
-        <button class="btn" style="font-size:12px;padding:6px 10px" onclick="goToEdit('${f.pid}','${f.id}')">Modifier</button>
+        <button class="btn" style="font-size:12px;padding:6px 10px" onclick="toggleEdit('${f.id}')">Modifier</button>
       </div>
     </div>`;
   }).join('');
@@ -643,23 +793,20 @@ window.retirerDepuisRecherche = async function(pid, prodId) {
   setTimeout(() => window.doSearch(), 600);
 }
 
-window.goToEdit = function(pid, prodId) {
-  showPage('palettes');
-  setTimeout(() => {
-    window.toggleDetail(pid);
-    setTimeout(() => {
-      const row = document.getElementById('row-' + prodId);
-      if (row) { row.scrollIntoView({behavior:'smooth'}); window.toggleEdit(prodId); }
-    }, 200);
-  }, 100);
-}
-
-window.showPage = function(name) {
+function showPageInternal(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   document.getElementById('tab-' + name).classList.add('active');
   if (name !== 'scanner') stopCamera();
+  currentPage = name;
+}
+
+window.showPage = function(name) {
+  if (name === currentPage) return;
+  showPageInternal(name);
+  pageHistory.push(name);
+  history.pushState(null, '', location.href);
 }
 </script>
 </body>
