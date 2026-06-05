@@ -213,7 +213,23 @@ input:focus,select:focus{border-color:#1a1a1a}
   <!-- RECHERCHE -->
   <div class="page" id="page-recherche">
     <div class="card">
-      <div class="card-title">Trouver un produit</div>
+      <div class="card-title">Scanner une étiquette rayon</div>
+      <div class="scan-zone" onclick="startSearchCamera()" id="search-scan-zone">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        <p>Scanner le code-barre de l'étiquette</p>
+      </div>
+      <div id="search-video-wrap" style="display:none;border-radius:12px;overflow:hidden;background:#000;position:relative">
+        <video id="search-video" autoplay playsinline muted style="width:100%;height:240px;object-fit:cover;display:block"></video>
+        <div class="scan-overlay">
+          <div class="scan-frame"><div class="scan-line"></div></div>
+        </div>
+        <div class="scan-hint">Centrez le code-barre dans le cadre</div>
+        <button class="btn btn-danger btn-full" style="border-radius:0;border:none;border-top:1px solid #fee2e2" onclick="stopSearchCamera()">Arrêter le scan</button>
+      </div>
+      <div class="status" id="search-scan-status" style="margin-top:6px"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Recherche manuelle</div>
       <input type="text" id="search-input" placeholder="Nom, code-barre ou derniers chiffres..." oninput="doSearch()" />
       <div style="font-size:11px;color:#aaa;margin-top:6px">Exemples : "coca", "456", "vin rouge"</div>
     </div>
@@ -586,6 +602,55 @@ window.stopCamera = function() {
   document.getElementById('video-wrap').style.display = 'none';
 }
 
+let searchCodeReader = null;
+let searchScanning = false;
+
+window.startSearchCamera = async function() {
+  document.getElementById('search-scan-zone').style.display = 'none';
+  document.getElementById('search-video-wrap').style.display = 'block';
+  showSearchStatus('Pret — pointez sur letiquette du rayon', 'ok');
+  try {
+    const { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } = await import('https://esm.sh/@zxing/library@0.19.1');
+    const hints = new Map();
+    hints.set(DecodeHintType.TRY_HARDER, true);
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+      BarcodeFormat.EAN_13, BarcodeFormat.EAN_8,
+      BarcodeFormat.CODE_128, BarcodeFormat.CODE_39,
+      BarcodeFormat.UPC_A, BarcodeFormat.UPC_E
+    ]);
+    searchCodeReader = new BrowserMultiFormatReader(hints, 500);
+    searchScanning = true;
+    await searchCodeReader.decodeFromVideoDevice(null, 'search-video', (result, err) => {
+      if (result && searchScanning) {
+        searchScanning = false;
+        const code = result.getText();
+        stopSearchCamera();
+        document.getElementById('search-input').value = code;
+        doSearch();
+        showSearchStatus('Code detecte : ' + code, 'ok');
+        playBeep();
+      }
+    });
+  } catch(e) {
+    stopSearchCamera();
+    showSearchStatus('Camera non disponible', 'warn');
+  }
+}
+
+window.stopSearchCamera = function() {
+  searchScanning = false;
+  if (searchCodeReader) { try { searchCodeReader.reset(); } catch(e){} searchCodeReader = null; }
+  document.getElementById('search-scan-zone').style.display = 'block';
+  document.getElementById('search-video-wrap').style.display = 'none';
+}
+
+function showSearchStatus(msg, type) {
+  const el = document.getElementById('search-scan-status');
+  el.textContent = msg;
+  el.style.color = type === 'ok' ? '#15803d' : '#d97706';
+  if (type === 'ok') setTimeout(() => { if(el.textContent === msg) el.textContent = ''; }, 4000);
+}
+
 function showStatus(msg, type) {
   const el = document.getElementById('scan-status');
   el.textContent = msg;
@@ -799,6 +864,7 @@ function showPageInternal(name) {
   document.getElementById('page-' + name).classList.add('active');
   document.getElementById('tab-' + name).classList.add('active');
   if (name !== 'scanner') stopCamera();
+  if (name !== 'recherche') stopSearchCamera();
   currentPage = name;
 }
 
