@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#ffffff">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -123,6 +123,15 @@ input:focus,select:focus{border-color:#1a1a1a}
       <button class="btn" style="flex:1;justify-content:center" onclick="closeModal('modal-photo')">Annuler</button>
     </div>
     <button class="btn btn-primary btn-full" id="photo-confirm-btn" style="margin-top:8px;display:none" onclick="confirmPhoto()">Enregistrer le produit</button>
+  </div>
+</div>
+
+<!-- MODAL VISIONNEUSE PHOTO -->
+<div class="modal-bg hidden" id="modal-viewer" onclick="closeModal('modal-viewer')" style="align-items:center;padding:20px">
+  <div style="position:relative;width:100%;max-width:480px">
+    <img id="viewer-img" style="width:100%;max-height:80vh;object-fit:contain;border-radius:12px;background:#000" />
+    <button class="btn" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.5);color:#fff;border-color:transparent;padding:6px 10px" onclick="closeModal('modal-viewer')">Fermer</button>
+    <div id="viewer-name" style="text-align:center;color:#fff;margin-top:8px;font-size:14px;font-weight:600"></div>
   </div>
 </div>
 
@@ -641,6 +650,18 @@ window.confirmPhoto = async function() {
   pendingPhotoData = null;
 }
 
+window.openViewer = function(src, name) {
+  document.getElementById('viewer-img').src = src;
+  document.getElementById('viewer-name').textContent = name || '';
+  document.getElementById('modal-viewer').classList.remove('hidden');
+}
+
+window.changeEditQty = function(prodId, delta) {
+  const input = document.getElementById('eq-' + prodId);
+  if (!input) return;
+  input.value = Math.max(1, (parseInt(input.value) || 1) + delta);
+}
+
 function playBeep() {
   try {
     const ctx = new AudioContext();
@@ -748,7 +769,7 @@ function showStatus(msg, type) {
 
 function productHTML(pr, pid) {
   const img = pr.image
-    ? `<img src="${pr.image}" class="row-img" loading="lazy" onerror="this.style.display='none'" />`
+    ? `<img src="${pr.image}" class="row-img" loading="lazy" onclick="openViewer(this.src,this.dataset.name)" data-name="${pr.name}" onerror="this.style.display='none'" style="cursor:pointer" />`
     : `<div class="row-img-placeholder">📦</div>`;
   const editId = 'edit-' + pr.id;
   return `<div class="row" id="row-${pr.id}">
@@ -762,7 +783,11 @@ function productHTML(pr, pid) {
         <div class="edit-form" id="${editId}">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
             <div><label style="font-size:11px;color:#888;display:block;margin-bottom:3px">Quantité</label>
-            <input type="number" id="eq-${pr.id}" value="${pr.qty}" min="1" style="text-align:center;padding:6px"/></div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <button class="btn" style="padding:5px 10px;font-size:16px;font-weight:700" onclick="changeEditQty('${pr.id}',-1)">&#8722;</button>
+              <input type="number" id="eq-${pr.id}" value="${pr.qty}" min="1" style="text-align:center;padding:6px;flex:1"/>
+              <button class="btn" style="padding:5px 10px;font-size:16px;font-weight:700" onclick="changeEditQty('${pr.id}',1)">+</button>
+            </div></div>
             <div><label style="font-size:11px;color:#888;display:block;margin-bottom:3px">Conditionnement</label>
             <select id="ec-${pr.id}" style="padding:6px">
               ${['unité','carton','palette','pack','caisse'].map(c=>`<option${c===pr.cond?' selected':''}>${c}</option>`).join('')}
