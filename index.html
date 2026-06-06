@@ -783,10 +783,10 @@ function productHTML(pr, pid) {
         <div class="edit-form" id="${editId}">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
             <div><label style="font-size:11px;color:#888;display:block;margin-bottom:3px">Quantité</label>
-            <div style="display:flex;align-items:center;gap:4px">
-              <button class="btn" style="padding:5px 10px;font-size:16px;font-weight:700" onclick="changeEditQty('${pr.id}',-1)">&#8722;</button>
-              <input type="number" id="eq-${pr.id}" value="${pr.qty}" min="1" style="text-align:center;padding:6px;flex:1"/>
-              <button class="btn" style="padding:5px 10px;font-size:16px;font-weight:700" onclick="changeEditQty('${pr.id}',1)">+</button>
+            <div style="display:flex;align-items:center;gap:6px">
+              <button class="btn" style="padding:8px 14px;font-size:18px;font-weight:700;flex-shrink:0;min-width:40px" onclick="changeEditQty('${pr.id}',-1)">&#8722;</button>
+              <input type="number" id="eq-${pr.id}" value="${pr.qty}" min="1" style="text-align:center;padding:8px;width:70px;min-width:70px;color:#1a1a1a;background:#fff;border:1px solid #ddd;border-radius:8px;font-size:16px;font-weight:600"/>
+              <button class="btn" style="padding:8px 14px;font-size:18px;font-weight:700;flex-shrink:0;min-width:40px" onclick="changeEditQty('${pr.id}',1)">+</button>
             </div></div>
             <div><label style="font-size:11px;color:#888;display:block;margin-bottom:3px">Conditionnement</label>
             <select id="ec-${pr.id}" style="padding:6px">
