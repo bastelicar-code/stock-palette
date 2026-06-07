@@ -814,7 +814,7 @@ let searchScanning = false;
 window.startSearchCamera = async function() {
   document.getElementById('search-scan-zone').style.display = 'none';
   document.getElementById('search-video-wrap').style.display = 'block';
-  showSearchStatus('Prêt — pointez sur l'étiquette du rayon', 'ok');
+  showSearchStatus('Prêt — pointez sur l\'étiquette du rayon', 'ok');
   try {
     const { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } = await import('https://esm.sh/@zxing/library@0.19.1');
     const hints = new Map();
