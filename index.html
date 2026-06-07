@@ -55,8 +55,10 @@ input:focus,select:focus{border-color:#1a1a1a}
 #video{width:100%;height:240px;object-fit:cover;display:block}
 .scan-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
 .scan-frame{width:220px;height:100px;border:2px solid #fff;border-radius:6px;position:relative}
-.scan-line{position:absolute;left:0;right:0;height:2px;background:rgba(255,80,80,0.8);animation:scanline 2s ease-in-out infinite}
-@keyframes scanline{0%{top:0}50%{top:calc(100% - 2px)}100%{top:0}}
+.scan-cross{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:30px;height:30px}
+.scan-cross::before,.scan-cross::after{content:'';position:absolute;background:#fff}
+.scan-cross::before{width:2px;height:30px;left:50%;transform:translateX(-50%)}
+.scan-cross::after{width:30px;height:2px;top:50%;transform:translateY(-50%)}
 .scan-hint{position:absolute;bottom:10px;left:0;right:0;text-align:center;color:rgba(255,255,255,0.8);font-size:12px}
 .status{font-size:12px;text-align:center;padding:5px;min-height:20px;font-weight:500}
 .result-ok{background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:13px;margin-bottom:8px}
@@ -205,10 +207,20 @@ input:focus,select:focus{border-color:#1a1a1a}
       <div id="video-wrap">
         <video id="video" autoplay playsinline muted></video>
         <div class="scan-overlay">
-          <div class="scan-frame"><div class="scan-line"></div></div>
+          <div class="scan-frame"><div class="scan-cross"></div></div>
         </div>
         <div class="scan-hint">Centrez le code-barre dans le cadre</div>
-        <button class="btn btn-danger btn-full" style="border-radius:0;border:none;border-top:1px solid #fee2e2" onclick="stopCamera()">Arrêter le scan</button>
+        <div style="padding:10px;background:#1a1a1a">
+  <div style="display:flex;gap:8px">
+    <button id="torch-btn" class="btn" style="flex-shrink:0;padding:10px 14px;background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff;display:none" onclick="toggleTorch()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18h6M10 22h4M12 2v4M4.93 4.93l2.83 2.83M19.07 4.93l-2.83 2.83M2 12h4M18 12h4M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+      Torche
+    </button>
+    <button class="btn btn-danger btn-full" style="padding:14px;font-size:15px;font-weight:700;justify-content:center" onclick="stopCamera()">
+      ✕ &nbsp;Arrêter le scan
+    </button>
+  </div>
+</div>
       </div>
       <div style="display:flex;gap:8px;margin-top:10px">
         <input type="text" id="manual-input" placeholder="Nom ou code-barre..." />
@@ -259,10 +271,20 @@ input:focus,select:focus{border-color:#1a1a1a}
       <div id="search-video-wrap" style="display:none;border-radius:12px;overflow:hidden;background:#000;position:relative">
         <video id="search-video" autoplay playsinline muted style="width:100%;height:240px;object-fit:cover;display:block"></video>
         <div class="scan-overlay">
-          <div class="scan-frame"><div class="scan-line"></div></div>
+          <div class="scan-frame"><div class="scan-cross"></div></div>
         </div>
         <div class="scan-hint">Centrez le code-barre dans le cadre</div>
-        <button class="btn btn-danger btn-full" style="border-radius:0;border:none;border-top:1px solid #fee2e2" onclick="stopSearchCamera()">Arrêter le scan</button>
+        <div style="padding:10px;background:#1a1a1a">
+  <div style="display:flex;gap:8px">
+    <button id="torch-search-btn" class="btn" style="flex-shrink:0;padding:10px 14px;background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff;display:none" onclick="toggleSearchTorch()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18h6M10 22h4M12 2v4M4.93 4.93l2.83 2.83M19.07 4.93l-2.83 2.83M2 12h4M18 12h4M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+      Torche
+    </button>
+    <button class="btn btn-danger btn-full" style="padding:14px;font-size:15px;font-weight:700;justify-content:center" onclick="stopSearchCamera()">
+      ✕ &nbsp;Arrêter le scan
+    </button>
+  </div>
+</div>
       </div>
       <div class="status" id="search-scan-status" style="margin-top:6px"></div>
     </div>
@@ -285,6 +307,33 @@ input:focus,select:focus{border-color:#1a1a1a}
 
   <!-- REGLAGES -->
   <div class="page" id="page-reglages">
+    <div class="card">
+      <div class="card-title">Torche lors du scan</div>
+      <p style="font-size:13px;color:#666;margin-bottom:10px">Choisissez comment la torche fonctionne pendant le scan.</p>
+      <div style="display:flex;flex-direction:column;gap:8px" id="torch-options">
+        <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid #ddd;border-radius:8px;cursor:pointer">
+          <input type="radio" name="torch-mode" value="auto" style="width:auto" onchange="saveTorchMode(this.value)" />
+          <div>
+            <div style="font-size:14px;font-weight:500">Automatique</div>
+            <div style="font-size:12px;color:#888">S'allume dès l'ouverture du scanner</div>
+          </div>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid #ddd;border-radius:8px;cursor:pointer">
+          <input type="radio" name="torch-mode" value="manuel" style="width:auto" onchange="saveTorchMode(this.value)" />
+          <div>
+            <div style="font-size:14px;font-weight:500">Manuel</div>
+            <div style="font-size:12px;color:#888">Un bouton apparaît pour allumer quand tu veux</div>
+          </div>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid #ddd;border-radius:8px;cursor:pointer">
+          <input type="radio" name="torch-mode" value="off" style="width:auto" onchange="saveTorchMode(this.value)" />
+          <div>
+            <div style="font-size:14px;font-weight:500">Désactivée</div>
+            <div style="font-size:12px;color:#888">Pas de torche</div>
+          </div>
+        </label>
+      </div>
+    </div>
     <div class="card">
       <div class="card-title">Préfixe des palettes</div>
       <p style="font-size:13px;color:#666;margin-bottom:10px">Définit le début du numéro de chaque nouvelle palette.<br>Exemple : "PL" → PL001, PL002...</p>
@@ -326,12 +375,15 @@ if ('serviceWorker' in navigator) {
 let palettes = {};
 let prenom = localStorage.getItem('sp_prenom') || '';
 let prefixe = localStorage.getItem('sp_prefixe') || 'P';
+let torchMode = localStorage.getItem('sp_torch') || 'manuel';
 let codeReader = null;
 let scanning = false;
 let wakeLock = null;
 let pendingCode = null;
 let pendingRenameId = null;
 let currentPage = 'scanner';
+let torchTrack = null;
+let searchTorchTrack = null;
 
 // Historique navigation pour bouton retour
 const pageHistory = ['scanner'];
@@ -414,6 +466,35 @@ document.getElementById('prenom-input').addEventListener('keydown', e => { if(e.
 function initPrefixe() {
   document.getElementById('prefixe-input').value = prefixe;
   updatePrefixePreview();
+  // Init torche
+  const radios = document.querySelectorAll('input[name="torch-mode"]');
+  radios.forEach(r => { if (r.value === torchMode) r.checked = true; });
+}
+
+window.saveTorchMode = function(val) {
+  torchMode = val;
+  localStorage.setItem('sp_torch', val);
+}
+
+async function applyTorch(track, on) {
+  if (!track) return;
+  try { await track.applyConstraints({ advanced: [{ torch: on }] }); } catch(e) {}
+}
+
+window.toggleTorch = async function() {
+  const btn = document.getElementById('torch-btn');
+  const isOn = btn.dataset.on === '1';
+  await applyTorch(torchTrack, !isOn);
+  btn.dataset.on = isOn ? '0' : '1';
+  btn.style.background = isOn ? 'rgba(255,255,255,0.1)' : 'rgba(255,200,0,0.3)';
+}
+
+window.toggleSearchTorch = async function() {
+  const btn = document.getElementById('torch-search-btn');
+  const isOn = btn.dataset.on === '1';
+  await applyTorch(searchTorchTrack, !isOn);
+  btn.dataset.on = isOn ? '0' : '1';
+  btn.style.background = isOn ? 'rgba(255,255,255,0.1)' : 'rgba(255,200,0,0.3)';
 }
 
 window.savePrefixe = function() {
@@ -689,7 +770,7 @@ window.startCamera = async function() {
       BarcodeFormat.CODE_128, BarcodeFormat.CODE_39,
       BarcodeFormat.QR_CODE, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E
     ]);
-    codeReader = new BrowserMultiFormatReader(hints, 500);
+    codeReader = new BrowserMultiFormatReader(hints, 300);
     scanning = true;
     await codeReader.decodeFromVideoDevice(null, 'video', async (result, err) => {
       if (result && scanning) {
@@ -698,6 +779,21 @@ window.startCamera = async function() {
         await addProduct(result.getText());
       }
     });
+    // Torche
+    const stream = document.getElementById('video').srcObject;
+    if (stream) {
+      torchTrack = stream.getVideoTracks()[0];
+      const torchBtn = document.getElementById('torch-btn');
+      if (torchMode === 'auto') {
+        torchBtn.style.display = 'none';
+        await applyTorch(torchTrack, true);
+      } else if (torchMode === 'manuel') {
+        torchBtn.style.display = 'flex';
+        torchBtn.dataset.on = '0';
+      } else {
+        torchBtn.style.display = 'none';
+      }
+    }
   } catch(e) {
     stopCamera();
     showStatus('Caméra non disponible', 'warn');
@@ -706,6 +802,7 @@ window.startCamera = async function() {
 
 window.stopCamera = function() {
   scanning = false;
+  if (torchTrack) { try { applyTorch(torchTrack, false); } catch(e){} torchTrack = null; }
   if (codeReader) { try { codeReader.reset(); } catch(e){} codeReader = null; }
   document.getElementById('scan-zone').style.display = 'block';
   document.getElementById('video-wrap').style.display = 'none';
@@ -717,7 +814,7 @@ let searchScanning = false;
 window.startSearchCamera = async function() {
   document.getElementById('search-scan-zone').style.display = 'none';
   document.getElementById('search-video-wrap').style.display = 'block';
-  showSearchStatus('Pret — pointez sur letiquette du rayon', 'ok');
+  showSearchStatus('Prêt — pointez sur l'étiquette du rayon', 'ok');
   try {
     const { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } = await import('https://esm.sh/@zxing/library@0.19.1');
     const hints = new Map();
@@ -727,7 +824,7 @@ window.startSearchCamera = async function() {
       BarcodeFormat.CODE_128, BarcodeFormat.CODE_39,
       BarcodeFormat.UPC_A, BarcodeFormat.UPC_E
     ]);
-    searchCodeReader = new BrowserMultiFormatReader(hints, 500);
+    searchCodeReader = new BrowserMultiFormatReader(hints, 300);
     searchScanning = true;
     await searchCodeReader.decodeFromVideoDevice(null, 'search-video', (result, err) => {
       if (result && searchScanning) {
@@ -736,18 +833,34 @@ window.startSearchCamera = async function() {
         stopSearchCamera();
         document.getElementById('search-input').value = code;
         doSearch();
-        showSearchStatus('Code detecte : ' + code, 'ok');
+        showSearchStatus('Code détecté : ' + code, 'ok');
         playBeep();
       }
     });
+    // Torche
+    const stream = document.getElementById('search-video').srcObject;
+    if (stream) {
+      searchTorchTrack = stream.getVideoTracks()[0];
+      const torchBtn = document.getElementById('torch-search-btn');
+      if (torchMode === 'auto') {
+        torchBtn.style.display = 'none';
+        await applyTorch(searchTorchTrack, true);
+      } else if (torchMode === 'manuel') {
+        torchBtn.style.display = 'flex';
+        torchBtn.dataset.on = '0';
+      } else {
+        torchBtn.style.display = 'none';
+      }
+    }
   } catch(e) {
     stopSearchCamera();
-    showSearchStatus('Camera non disponible', 'warn');
+    showSearchStatus('Caméra non disponible', 'warn');
   }
 }
 
 window.stopSearchCamera = function() {
   searchScanning = false;
+  if (searchTorchTrack) { try { applyTorch(searchTorchTrack, false); } catch(e){} searchTorchTrack = null; }
   if (searchCodeReader) { try { searchCodeReader.reset(); } catch(e){} searchCodeReader = null; }
   document.getElementById('search-scan-zone').style.display = 'block';
   document.getElementById('search-video-wrap').style.display = 'none';
