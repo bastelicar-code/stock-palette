@@ -510,7 +510,7 @@ function updatePrefixePreview() {
   const v = (document.getElementById('prefixe-input').value.trim().toUpperCase() || 'P');
   document.getElementById('prefixe-preview').textContent = 'Aperçu : ' + v + '001, ' + v + '002, ' + v + '003...';
 }
-document.getElementById('prefixe-input').addEventListener('input', updatePrefixePreview);
+const prefixeEl = document.getElementById('prefixe-input'); if (prefixeEl) prefixeEl.addEventListener('input', updatePrefixePreview);
 
 // Firebase
 function initFirestore() {
