@@ -97,9 +97,24 @@ input:focus,select:focus{border-color:#1a1a1a}
 <div class="modal-bg hidden" id="modal-nom">
   <div class="modal">
     <h3>Produit non reconnu</h3>
-    <p>Ce produit n'est pas dans la base de données. Tu peux lui donner un nom ou l'enregistrer avec son code-barre.</p>
-    <div class="modal-code" id="modal-code-display"></div>
-    <input type="text" id="modal-nom-input" placeholder="Nom du produit (optionnel)..." />
+    <p style="margin-bottom:10px">Ce produit n'est pas dans la base de données.</p>
+    <div style="background:#f3f4f6;border-radius:8px;padding:10px;margin-bottom:10px">
+      <div style="font-size:11px;color:#888;margin-bottom:4px;font-weight:600;text-transform:uppercase">Code-barre</div>
+      <div id="modal-code-display" style="font-family:monospace;font-size:15px;font-weight:700;color:#1a1a1a;word-break:break-all"></div>
+      <div id="modal-link-display" style="display:none;margin-top:6px">
+        <div style="font-size:11px;color:#888;margin-bottom:2px;font-weight:600;text-transform:uppercase">Lien</div>
+        <a id="modal-link-url" href="#" target="_blank" style="font-size:12px;color:#1e40af;word-break:break-all;text-decoration:underline"></a>
+      </div>
+    </div>
+    <input type="text" id="modal-nom-input" placeholder="Nom du produit (optionnel)..." style="margin-bottom:10px" />
+    <div id="modal-photo-preview" style="display:none;margin-bottom:10px">
+      <img id="modal-photo-preview-img" style="width:100%;max-height:150px;object-fit:contain;border-radius:8px;border:1px solid #eee;background:#f9fafb" />
+    </div>
+    <input type="file" id="modal-photo-file" accept="image/*" capture="environment" style="display:none" onchange="onModalPhotoSelected(event)" />
+    <button class="btn btn-full" style="margin-bottom:8px;border-style:dashed;color:#666" onclick="document.getElementById('modal-photo-file').click()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      Prendre une photo
+    </button>
     <div class="modal-btns">
       <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="confirmNom()">Enregistrer</button>
       <button class="btn" style="flex:1;justify-content:center" onclick="skipNom()">Sans nom</button>
@@ -590,19 +605,85 @@ window.closeModal = function(id) {
 }
 
 // Modal nom produit
+let pendingModalPhoto = null;
+
+window.onModalPhotoSelected = function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const MAX = 300;
+      let w = img.width, h = img.height;
+      if (w > h) { if (w > MAX) { h = h * MAX / w; w = MAX; } }
+      else { if (h > MAX) { w = w * MAX / h; h = MAX; } }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      pendingModalPhoto = canvas.toDataURL('image/jpeg', 0.7);
+      document.getElementById('modal-photo-preview-img').src = pendingModalPhoto;
+      document.getElementById('modal-photo-preview').style.display = 'block';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+window.onEditPhotoSelected = function(event, pid, prodId) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const MAX = 300;
+      let w = img.width, h = img.height;
+      if (w > h) { if (w > MAX) { h = h * MAX / w; w = MAX; } }
+      else { if (h > MAX) { w = w * MAX / h; h = MAX; } }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const compressed = canvas.toDataURL('image/jpeg', 0.7);
+      // Stocker temporairement dans un data attribute
+      const btn = document.querySelector(`#ef-${prodId}`);
+      if (btn) btn.dataset.photo = compressed;
+      // Afficher aperçu dans le formulaire
+      const existingImg = document.querySelector(`#row-${prodId} .row-img, #row-${prodId} .row-img-placeholder`);
+      if (existingImg) {
+        const newImg = document.createElement('img');
+        newImg.src = compressed;
+        newImg.className = 'row-img';
+        newImg.style.cursor = 'pointer';
+        newImg.onclick = function() { openViewer(compressed, ''); };
+        existingImg.replaceWith(newImg);
+      }
+      showStatus('Photo prête — appuie sur Enregistrer', 'ok');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
 window.confirmNom = function() {
   if (!pendingCode) return;
   const nom = document.getElementById('modal-nom-input').value.trim();
   document.getElementById('modal-nom').classList.add('hidden');
-  addProductFinal(pendingCode.code, nom || pendingCode.code, null, null);
+  addProductFinal(pendingCode.code, nom || pendingCode.code, pendingModalPhoto || null, null);
   pendingCode = null;
+  pendingModalPhoto = null;
+  document.getElementById('modal-photo-preview').style.display = 'none';
 }
 
 window.skipNom = function() {
   if (!pendingCode) return;
   document.getElementById('modal-nom').classList.add('hidden');
-  addProductFinal(pendingCode.code, pendingCode.code, null, null);
+  addProductFinal(pendingCode.code, pendingCode.code, pendingModalPhoto || null, null);
   pendingCode = null;
+  pendingModalPhoto = null;
+  document.getElementById('modal-photo-preview').style.display = 'none';
 }
 
 // Open Food Facts
@@ -641,6 +722,20 @@ async function addProduct(code) {
     pendingCode = { code };
     document.getElementById('modal-code-display').textContent = code;
     document.getElementById('modal-nom-input').value = '';
+    document.getElementById('modal-photo-preview').style.display = 'none';
+    pendingModalPhoto = null;
+    // Si le code est une URL, l'afficher comme lien cliquable
+    const isUrl = code.startsWith('http://') || code.startsWith('https://');
+    const linkDiv = document.getElementById('modal-link-display');
+    if (isUrl) {
+      const linkEl = document.getElementById('modal-link-url');
+      linkEl.href = code;
+      linkEl.textContent = code;
+      linkDiv.style.display = 'block';
+      document.getElementById('modal-code-display').textContent = '(URL encodée)';
+    } else {
+      linkDiv.style.display = 'none';
+    }
     document.getElementById('modal-nom').classList.remove('hidden');
     setTimeout(() => document.getElementById('modal-nom-input').focus(), 100);
   }
@@ -907,6 +1002,11 @@ function productHTML(pr, pid) {
             </select></div>
           </div>
           <input type="text" id="en-${pr.id}" value="${pr.name}" placeholder="Nom du produit" style="margin-bottom:6px;padding:6px" />
+          <input type="file" id="ef-${pr.id}" accept="image/*" capture="environment" style="display:none" onchange="onEditPhotoSelected(event,'${pid}','${pr.id}')" />
+          <button class="btn btn-full" style="font-size:12px;padding:6px;margin-bottom:6px;border-style:dashed;color:#666" onclick="document.getElementById('ef-${pr.id}').click()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            ${pr.image ? 'Changer la photo' : 'Ajouter une photo'}
+          </button>
           <button class="btn btn-primary btn-full" style="font-size:12px;padding:6px" onclick="saveEdit('${pid}','${pr.id}')">Enregistrer</button>
         </div>`:''
       }
@@ -943,10 +1043,13 @@ window.saveEdit = async function(pid, prodId) {
   const newCond = document.getElementById('ec-' + prodId).value;
   const newName = document.getElementById('en-' + prodId).value.trim() || '';
   const heure = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
-  const produits = (p.produits||[]).map(pr =>
-    pr.id === prodId ? {...pr, qty:newQty, cond:newCond, name:newName||pr.name} : pr
-  );
+  // Récupérer la photo si une nouvelle a été sélectionnée
+  const photoInput = document.getElementById('ef-' + prodId);
+  const newPhoto = photoInput ? photoInput.dataset.photo : null;
   const prod = (p.produits||[]).find(pr => pr.id === prodId);
+  const produits = (p.produits||[]).map(pr =>
+    pr.id === prodId ? {...pr, qty:newQty, cond:newCond, name:newName||pr.name, image: newPhoto || pr.image} : pr
+  );
   const hist = { action:'modification', name:newName||prod?.name, qty:newQty, cond:newCond, heure, par:prenom };
   setSyncStatus('syncing');
   await updateDoc(doc(db, 'palettes', pid), { produits, historique:[...(p.historique||[]),hist] });

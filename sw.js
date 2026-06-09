@@ -1,13 +1,13 @@
-const CACHE = 'stock-palette-v2';
-const STATIC = [
-  '/',
-  '/index.html',
-  '/manifest.json'
-];
+const CACHE = 'stock-palette-v3';
+const BASE = '/stock-palette';
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(STATIC))
+    caches.open(CACHE).then(c => c.addAll([
+      BASE + '/',
+      BASE + '/index.html',
+      BASE + '/manifest.json'
+    ])).catch(() => caches.open(CACHE).then(c => c.add(BASE + '/index.html')))
   );
   self.skipWaiting();
 });
@@ -23,32 +23,38 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = e.request.url;
-  // Réseau prioritaire pour Firebase, Open Food Facts, libs externes
+
+  // Réseau prioritaire pour les services externes
   if (
     url.includes('firebasejs') ||
     url.includes('gstatic.com') ||
     url.includes('esm.sh') ||
     url.includes('googleapis.com') ||
     url.includes('openfoodfacts') ||
-    url.includes('unpkg.com') ||
-    url.includes('cdnjs')
+    url.includes('firebaseio.com') ||
+    url.includes('firestore.googleapis')
   ) {
-    e.respondWith(
-      fetch(e.request).catch(() => caches.match(e.request))
-    );
+    e.respondWith(fetch(e.request).catch(() => new Response('', {status: 503})));
     return;
   }
-  // Cache prioritaire pour les assets locaux
+
+  // Cache prioritaire pour les fichiers locaux
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(res => {
-        if (res && res.ok) {
+        if (res && res.ok && res.type === 'basic') {
           const clone = res.clone();
           caches.open(CACHE).then(c => c.put(e.request, clone));
         }
         return res;
-      }).catch(() => caches.match('/index.html'));
+      }).catch(() => {
+        // Fallback vers index.html pour toute navigation
+        if (e.request.mode === 'navigate') {
+          return caches.match(BASE + '/index.html');
+        }
+        return new Response('', {status: 503});
+      });
     })
   );
 });
