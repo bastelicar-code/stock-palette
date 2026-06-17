@@ -195,6 +195,10 @@ input:focus,select:focus{border-color:#1a1a1a}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1" fill="currentColor"/><circle cx="3" cy="12" r="1" fill="currentColor"/><circle cx="3" cy="18" r="1" fill="currentColor"/></svg>
       Palettes
     </button>
+    <button class="tab" onclick="showPage('picking')" id="tab-picking">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      Picking
+    </button>
     <button class="tab" onclick="showPage('reglages')" id="tab-reglages">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       Réglages
@@ -318,6 +322,33 @@ input:focus,select:focus{border-color:#1a1a1a}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Créer une nouvelle palette
     </button>
+  </div>
+
+  <!-- PICKING -->
+  <div class="page" id="page-picking">
+    <div class="card">
+      <div class="card-title">Liste de picking</div>
+      <p style="font-size:12px;color:#888;margin-bottom:10px">Scanne ou tape les produits manquants en rayon. Ils se classent automatiquement par palette.</p>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input type="text" id="picking-input" placeholder="Nom ou code-barre..." oninput="addPickingItem()" />
+        <button class="btn btn-primary" style="flex-shrink:0;padding:10px" onclick="startPickingCamera()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </button>
+      </div>
+      <div id="picking-video-wrap" style="display:none;border-radius:12px;overflow:hidden;background:#000;position:relative;margin-bottom:8px">
+        <video id="picking-video" autoplay playsinline muted style="width:100%;height:200px;object-fit:cover;display:block"></video>
+        <div class="scan-overlay"><div class="scan-frame"><div class="scan-cross"></div></div></div>
+        <div class="scan-hint">Centrez le code-barre dans le cadre</div>
+        <div style="padding:8px;background:#1a1a1a">
+          <button class="btn btn-danger btn-full" style="padding:12px;font-size:14px;font-weight:700;justify-content:center" onclick="stopPickingCamera()">✕ Arrêter le scan</button>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span id="picking-count" style="font-size:12px;color:#888"></span>
+        <button class="btn btn-danger" style="font-size:11px;padding:4px 10px" onclick="clearPicking()">Vider la liste</button>
+      </div>
+    </div>
+    <div id="picking-result"></div>
   </div>
 
   <!-- REGLAGES -->
@@ -552,7 +583,7 @@ function renderSelect() {
   Object.keys(palettes).sort().forEach(id => {
     const p = palettes[id];
     const actifs = (p.produits||[]).filter(x => !x.sorti).length;
-    const label = p.label ? p.label + ' (' + id + ')' : id;
+    const label = p.label || id;
     const o = document.createElement('option');
     o.value = id;
     o.textContent = label + (p.cloturee ? ' [clôt.]' : '') + ' — ' + actifs + ' en stock';
@@ -579,8 +610,26 @@ window.newPalette = async function() {
     produits: [], historique: [], cloturee: false,
     creee: new Date().toLocaleDateString('fr-FR'), creePar: prenom, label: ''
   });
-  setTimeout(() => { document.getElementById('palette-select').value = id; renderRecent(id); }, 500);
-  showStatus('Palette ' + id + ' créée', 'ok');
+  setTimeout(() => {
+    document.getElementById('palette-select').value = id;
+    renderRecent(id);
+    // Ouvrir popup renommage immédiatement
+    openRenameNew(id);
+  }, 600);
+}
+
+window.openRenameNew = function(pid) {
+  pendingRenameId = pid;
+  const modal = document.getElementById('modal-rename');
+  const input = document.getElementById('modal-rename-input');
+  const title = modal.querySelector('h3');
+  const p = modal.querySelector('p');
+  title.textContent = 'Nommer la palette ' + pid;
+  p.textContent = 'Laisse vide pour garder le numéro automatique, ou entre un nom personnalisé.';
+  input.value = '';
+  input.placeholder = 'Ex: Vins rouges, Crèmerie... (optionnel)';
+  modal.classList.remove('hidden');
+  setTimeout(() => input.focus(), 100);
 }
 
 // Renommer palette
@@ -1102,11 +1151,13 @@ function renderPalettesPage() {
     const actifs = (p.produits||[]).filter(x => !x.sorti).length;
     const sortis = total - actifs;
     const hist = [...(p.historique||[])].reverse().slice(0, 8);
-    const label = p.label ? p.label + ' (' + id + ')' : id;
+    const label = p.label || id;
+    const sublabel = p.label ? id : '';
     return `<div class="palette-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-size:18px;font-weight:800">${label}</span>
+          ${sublabel ? `<span style="font-size:11px;color:#aaa;font-family:monospace">${sublabel}</span>` : ''}
           <span class="badge ${p.cloturee?'badge-gray':'badge-blue'}">${p.cloturee?'Clôturée':'Ouverte'}</span>
         </div>
         <span style="font-size:11px;color:#aaa">${p.creee||''}</span>
@@ -1162,7 +1213,7 @@ window.doSearch = function() {
     const img = f.image
       ? `<img src="${f.image}" style="width:48px;height:48px;object-fit:contain;border-radius:6px;background:#f9fafb;border:1px solid #eee;margin-right:10px;float:left"/>`
       : `<div style="width:48px;height:48px;border-radius:6px;background:#f3f4f6;display:inline-flex;align-items:center;justify-content:center;font-size:22px;margin-right:10px;float:left">📦</div>`;
-    const palLabel = palettes[f.pid]?.label ? palettes[f.pid].label + ' (' + f.pid + ')' : f.pid;
+    const palLabel = palettes[f.pid]?.label || f.pid;
     return `<div class="result-ok">
       <div style="overflow:hidden">
         ${img}
@@ -1187,6 +1238,167 @@ window.retirerDepuisRecherche = async function(pid, prodId) {
   setTimeout(() => window.doSearch(), 600);
 }
 
+// ==========================================
+// PICKING
+// ==========================================
+let pickingList = []; // [{query, code, name, pid, prodId, done}]
+let pickingCodeReader = null;
+let pickingScanning = false;
+
+window.addPickingItem = function() {
+  const input = document.getElementById('picking-input');
+  const q = input.value.trim();
+  if (!q || q.length < 2) return;
+  // Vérifier si déjà dans la liste
+  if (pickingList.some(i => i.query === q)) return;
+  const found = searchInPalettes(q);
+  const item = { query: q, done: false, ...found };
+  pickingList.push(item);
+  input.value = '';
+  renderPickingResult();
+}
+
+window.addPickingCode = function(code) {
+  if (pickingList.some(i => i.query === code)) return;
+  const found = searchInPalettes(code);
+  const item = { query: code, done: false, ...found };
+  pickingList.push(item);
+  renderPickingResult();
+}
+
+function searchInPalettes(q) {
+  const ql = q.toLowerCase();
+  for (const pid of Object.keys(palettes)) {
+    const prods = palettes[pid].produits || [];
+    for (const pr of prods) {
+      if (!pr.sorti && (
+        pr.name.toLowerCase().includes(ql) ||
+        pr.code.toLowerCase().includes(ql) ||
+        (pr.brand||'  ').toLowerCase().includes(ql)
+      )) {
+        return { found: true, pid, prodId: pr.id, name: pr.name, qty: pr.qty, cond: pr.cond };
+      }
+    }
+  }
+  return { found: false, pid: null, prodId: null, name: q, qty: null, cond: null };
+}
+
+function renderPickingResult() {
+  const container = document.getElementById('picking-result');
+  const countEl = document.getElementById('picking-count');
+  if (!pickingList.length) {
+    container.innerHTML = '';
+    countEl.textContent = '';
+    return;
+  }
+  const total = pickingList.length;
+  const done = pickingList.filter(i => i.done).length;
+  countEl.textContent = done + '/' + total + ' récupérés';
+
+  // Grouper par palette
+  const byPalette = {};
+  const notFound = [];
+  pickingList.forEach(item => {
+    if (item.found && item.pid) {
+      if (!byPalette[item.pid]) byPalette[item.pid] = [];
+      byPalette[item.pid].push(item);
+    } else {
+      notFound.push(item);
+    }
+  });
+
+  let html = '';
+
+  // Palettes avec produits
+  Object.keys(byPalette).sort().forEach(pid => {
+    const items = byPalette[pid];
+    const palLabel = palettes[pid]?.label || pid;
+    const allDone = items.every(i => i.done);
+    html += `<div class="card" style="margin-bottom:10px;${allDone ? 'opacity:0.6' : ''}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div>
+          <span style="font-size:16px;font-weight:800">${palLabel}</span>
+          ${palettes[pid]?.label ? `<span style="font-size:11px;color:#aaa;font-family:monospace;margin-left:6px">${pid}</span>` : ''}
+        </div>
+        <span class="badge badge-blue">${items.filter(i=>!i.done).length} à prendre</span>
+      </div>`;
+    items.forEach(item => {
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0">
+        <input type="checkbox" ${item.done ? 'checked' : ''} onchange="togglePickingItem('${item.query}')" style="width:20px;height:20px;flex-shrink:0;cursor:pointer" />
+        <div style="flex:1;${item.done ? 'text-decoration:line-through;color:#aaa' : ''}">
+          <div style="font-size:13px;font-weight:600">${item.name}</div>
+          ${item.qty ? `<div style="font-size:11px;color:#888">${item.qty} ${item.cond}</div>` : ''}
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+
+  // Produits non trouvés
+  if (notFound.length) {
+    html += `<div class="card" style="margin-bottom:10px;border-color:#fca5a5">
+      <div style="font-size:13px;font-weight:700;color:#dc2626;margin-bottom:8px">Introuvable en palette</div>`;
+    notFound.forEach(item => {
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0">
+        <div style="width:20px;height:20px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px">?</div>
+        <div style="font-size:13px;color:#dc2626">${item.name}</div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+window.togglePickingItem = function(query) {
+  const item = pickingList.find(i => i.query === query);
+  if (item) { item.done = !item.done; renderPickingResult(); }
+}
+
+window.clearPicking = function() {
+  if (pickingList.length && !confirm('Vider toute la liste ?')) return;
+  pickingList = [];
+  renderPickingResult();
+}
+
+window.startPickingCamera = async function() {
+  document.getElementById('picking-video-wrap').style.display = 'block';
+  try {
+    const { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } = await import('https://esm.sh/@zxing/library@0.19.1');
+    const hints = new Map();
+    hints.set(DecodeHintType.TRY_HARDER, true);
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+      BarcodeFormat.EAN_13, BarcodeFormat.EAN_8,
+      BarcodeFormat.CODE_128, BarcodeFormat.CODE_39,
+      BarcodeFormat.UPC_A, BarcodeFormat.UPC_E
+    ]);
+    pickingCodeReader = new BrowserMultiFormatReader(hints, 300);
+    pickingScanning = true;
+    await pickingCodeReader.decodeFromVideoDevice(null, 'picking-video', (result, err) => {
+      if (result && pickingScanning) {
+        const code = result.getText();
+        playBeep();
+        addPickingCode(code);
+        // Continuer à scanner (ne pas stopper automatiquement)
+      }
+    });
+    // Torche
+    const stream = document.getElementById('picking-video').srcObject;
+    if (stream && torchMode !== 'off') {
+      const track = stream.getVideoTracks()[0];
+      if (torchMode === 'auto') await applyTorch(track, true);
+    }
+  } catch(e) {
+    stopPickingCamera();
+  }
+}
+
+window.stopPickingCamera = function() {
+  pickingScanning = false;
+  if (pickingCodeReader) { try { pickingCodeReader.reset(); } catch(e){} pickingCodeReader = null; }
+  document.getElementById('picking-video-wrap').style.display = 'none';
+}
+
 function showPageInternal(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1194,6 +1406,7 @@ function showPageInternal(name) {
   document.getElementById('tab-' + name).classList.add('active');
   if (name !== 'scanner') stopCamera();
   if (name !== 'recherche') stopSearchCamera();
+  if (name !== 'picking') stopPickingCamera();
   currentPage = name;
 }
 
