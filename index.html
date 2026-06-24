@@ -330,8 +330,11 @@ input:focus,select:focus{border-color:#1a1a1a}
       <div class="card-title">Liste de picking</div>
       <p style="font-size:12px;color:#888;margin-bottom:10px">Scanne ou tape les produits manquants en rayon. Ils se classent automatiquement par palette.</p>
       <div style="display:flex;gap:8px;margin-bottom:8px">
-        <input type="text" id="picking-input" placeholder="Nom ou code-barre..." oninput="addPickingItem()" />
-        <button class="btn btn-primary" style="flex-shrink:0;padding:10px" onclick="startPickingCamera()">
+        <input type="text" id="picking-input" placeholder="Nom ou 3+ chiffres du code-barre..." onkeydown="if(event.key==='Enter'){addPickingItem();}" inputmode="text" />
+        <button class="btn btn-primary" style="flex-shrink:0;padding:10px" onclick="addPickingItem()" title="Ajouter">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <button class="btn" style="flex-shrink:0;padding:10px" onclick="startPickingCamera()" title="Scanner">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
         </button>
       </div>
@@ -1140,7 +1143,12 @@ window.toggleDetail = function(id) {
 
 function renderPalettesPage() {
   const container = document.getElementById('palettes-container');
-  const ids = Object.keys(palettes).sort();
+  const ids = Object.keys(palettes).sort((a, b) => {
+    const da = palettes[a].creee || '';
+    const db = palettes[b].creee || '';
+    // Tri par id décroissant (plus récent en haut) car date FR pas facilement comparable
+    return b.localeCompare(a);
+  });
   if (!ids.length) {
     container.innerHTML = '<div class="card"><p class="empty">Aucune palette créée.</p></div>';
     return;
@@ -1165,6 +1173,7 @@ function renderPalettesPage() {
       <div class="stat-row">
         <div class="stat"><div class="stat-num">${actifs}</div><div class="stat-label">En stock</div></div>
         <div class="stat"><div class="stat-num" style="color:#aaa">${sortis}</div><div class="stat-label">Sortis</div></div>
+        <div class="stat"><div class="stat-num" style="color:#6b7280">${total}</div><div class="stat-label">Total</div></div>
       </div>
       <div id="detail-${id}" style="display:none">
         <div style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Produits</div>
@@ -1241,46 +1250,72 @@ window.retirerDepuisRecherche = async function(pid, prodId) {
 // ==========================================
 // PICKING
 // ==========================================
-let pickingList = []; // [{query, code, name, pid, prodId, done}]
+let pickingList = [];
 let pickingCodeReader = null;
 let pickingScanning = false;
 
+// Recherche uniquement sur Entrée ou bouton +
 window.addPickingItem = function() {
   const input = document.getElementById('picking-input');
   const q = input.value.trim();
-  if (!q || q.length < 2) return;
-  // Vérifier si déjà dans la liste
-  if (pickingList.some(i => i.query === q)) return;
-  const found = searchInPalettes(q);
-  const item = { query: q, done: false, ...found };
-  pickingList.push(item);
+  if (!q || q.length < 3) {
+    input.style.borderColor = '#fca5a5';
+    setTimeout(() => input.style.borderColor = '', 1000);
+    return;
+  }
   input.value = '';
+  input.style.borderColor = '';
+  const results = searchInPalettes(q);
+  let added = 0;
+  results.forEach(r => {
+    if (!pickingList.some(i => i.prodId && i.prodId === r.prodId)) {
+      pickingList.push({ query: q, done: false, ...r });
+      added++;
+    }
+  });
   renderPickingResult();
+  input.focus();
 }
 
 window.addPickingCode = function(code) {
-  if (pickingList.some(i => i.query === code)) return;
-  const found = searchInPalettes(code);
-  const item = { query: code, done: false, ...found };
-  pickingList.push(item);
+  const results = searchInPalettes(code);
+  results.forEach(r => {
+    if (!pickingList.some(i => i.prodId && i.prodId === r.prodId)) {
+      pickingList.push({ query: code, done: false, ...r });
+    }
+  });
   renderPickingResult();
 }
 
 function searchInPalettes(q) {
   const ql = q.toLowerCase();
+  const isNumeric = /^[0-9]+$/.test(q);
+  const results = [];
   for (const pid of Object.keys(palettes)) {
     const prods = palettes[pid].produits || [];
     for (const pr of prods) {
-      if (!pr.sorti && (
-        pr.name.toLowerCase().includes(ql) ||
-        pr.code.toLowerCase().includes(ql) ||
-        (pr.brand||'  ').toLowerCase().includes(ql)
-      )) {
-        return { found: true, pid, prodId: pr.id, name: pr.name, qty: pr.qty, cond: pr.cond };
+      if (pr.sorti) continue;
+      let match = false;
+      if (isNumeric) {
+        // Chiffres uniquement : chercher dans le code-barre (fin du code)
+        match = pr.code.endsWith(q) || pr.code.includes(q);
+      } else {
+        // Texte : chercher dans le nom et la marque
+        match = pr.name.toLowerCase().includes(ql) ||
+                (pr.brand||''). toLowerCase().includes(ql);
+      }
+      if (match) {
+        results.push({
+          found: true, pid, prodId: pr.id,
+          name: pr.name, qty: pr.qty, cond: pr.cond,
+          image: pr.image||null, code: pr.code,
+          heure: pr.heure, ajoutePar: pr.ajoutePar
+        });
       }
     }
   }
-  return { found: false, pid: null, prodId: null, name: q, qty: null, cond: null };
+  if (results.length) return results;
+  return [{ found: false, pid: null, prodId: null, name: q, qty: null, cond: null, image: null, code: q, heure: null, ajoutePar: null }];
 }
 
 function renderPickingResult() {
@@ -1323,11 +1358,16 @@ function renderPickingResult() {
         <span class="badge badge-blue">${items.filter(i=>!i.done).length} à prendre</span>
       </div>`;
     items.forEach(item => {
-      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0">
-        <input type="checkbox" ${item.done ? 'checked' : ''} onchange="togglePickingItem('${item.query}')" style="width:20px;height:20px;flex-shrink:0;cursor:pointer" />
-        <div style="flex:1;${item.done ? 'text-decoration:line-through;color:#aaa' : ''}">
-          <div style="font-size:13px;font-weight:600">${item.name}</div>
-          ${item.qty ? `<div style="font-size:11px;color:#888">${item.qty} ${item.cond}</div>` : ''}
+      const imgHtml = item.image
+        ? `<img src="${item.image}" style="width:36px;height:36px;object-fit:contain;border-radius:6px;background:#f9fafb;border:1px solid #eee;flex-shrink:0" />`
+        : `<div style="width:36px;height:36px;border-radius:6px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">📦</div>`;
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0">
+        <input type="checkbox" ${item.done ? 'checked' : ''} onchange="togglePickingItem('${item.query}','${item.prodId||''}' )" style="width:20px;height:20px;flex-shrink:0;cursor:pointer" />
+        ${imgHtml}
+        <div style="flex:1;min-width:0;${item.done ? 'opacity:0.4' : ''}">
+          <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${item.done?'text-decoration:line-through':'' }">${item.name}</div>
+          <div style="font-size:11px;color:#888">${item.qty ? item.qty+' '+item.cond+' · ' : ''}${item.heure ? item.heure : ''}</div>
+          <div style="font-size:10px;color:#bbb;font-family:monospace">${item.code||''}</div>
         </div>
       </div>`;
     });
@@ -1350,8 +1390,8 @@ function renderPickingResult() {
   container.innerHTML = html;
 }
 
-window.togglePickingItem = function(query) {
-  const item = pickingList.find(i => i.query === query);
+window.togglePickingItem = function(query, prodId) {
+  const item = pickingList.find(i => prodId ? i.prodId === prodId : i.query === query);
   if (item) { item.done = !item.done; renderPickingResult(); }
 }
 
