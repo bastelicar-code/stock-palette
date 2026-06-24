@@ -1288,8 +1288,7 @@ window.addPickingCode = function(code) {
 }
 
 function searchInPalettes(q) {
-  // Nettoyer la saisie : supprimer espaces et caractères invisibles
-  const qClean = q.trim().replace(/\s+/g, '');
+  const qClean = q.trim();
   const ql = qClean.toLowerCase();
   const isNumeric = /^[0-9]+$/.test(qClean);
   const results = [];
@@ -1297,12 +1296,11 @@ function searchInPalettes(q) {
     const prods = palettes[pid].produits || [];
     for (const pr of prods) {
       if (pr.sorti) continue;
-      // Nettoyer le code stocké aussi
-      const codeClean = (pr.code || '').trim().replace(/\s+/g, '');
+      const codeClean = (pr.code || '').trim();
       let match = false;
       if (isNumeric) {
-        // Chiffres : chercher UNIQUEMENT en fin de code-barre (endsWith strict)
-        match = codeClean.endsWith(qClean);
+        // Fin du code-barre OU code exact (pour saisies manuelles courtes)
+        match = codeClean.endsWith(qClean) || codeClean === qClean;
       } else {
         // Texte : chercher dans le nom et la marque
         match = pr.name.toLowerCase().includes(ql) ||
