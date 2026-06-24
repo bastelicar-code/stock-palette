@@ -1288,21 +1288,25 @@ window.addPickingCode = function(code) {
 }
 
 function searchInPalettes(q) {
-  const ql = q.toLowerCase();
-  const isNumeric = /^[0-9]+$/.test(q);
+  // Nettoyer la saisie : supprimer espaces et caractères invisibles
+  const qClean = q.trim().replace(/\s+/g, '');
+  const ql = qClean.toLowerCase();
+  const isNumeric = /^[0-9]+$/.test(qClean);
   const results = [];
   for (const pid of Object.keys(palettes)) {
     const prods = palettes[pid].produits || [];
     for (const pr of prods) {
       if (pr.sorti) continue;
+      // Nettoyer le code stocké aussi
+      const codeClean = (pr.code || '').trim().replace(/\s+/g, '');
       let match = false;
       if (isNumeric) {
-        // Chiffres uniquement : chercher dans le code-barre (fin du code)
-        match = pr.code.endsWith(q) || pr.code.includes(q);
+        // Chiffres : chercher UNIQUEMENT en fin de code-barre (endsWith strict)
+        match = codeClean.endsWith(qClean);
       } else {
         // Texte : chercher dans le nom et la marque
         match = pr.name.toLowerCase().includes(ql) ||
-                (pr.brand||''). toLowerCase().includes(ql);
+                (pr.brand||'').toLowerCase().includes(ql);
       }
       if (match) {
         results.push({
