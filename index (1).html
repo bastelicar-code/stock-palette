@@ -330,8 +330,11 @@ input:focus,select:focus{border-color:#1a1a1a}
       <div class="card-title">Liste de picking</div>
       <p style="font-size:12px;color:#888;margin-bottom:10px">Scanne ou tape les produits manquants en rayon. Ils se classent automatiquement par palette.</p>
       <div style="display:flex;gap:8px;margin-bottom:8px">
-        <input type="text" id="picking-input" placeholder="Nom ou code-barre..." oninput="debouncePicking()" onkeydown="if(event.key==='Enter') addPickingItem(true)" />
-        <button class="btn btn-primary" style="flex-shrink:0;padding:10px" onclick="startPickingCamera()">
+        <input type="text" id="picking-input" placeholder="Nom ou 3+ chiffres du code-barre..." onkeydown="if(event.key==='Enter'){addPickingItem();}" inputmode="text" />
+        <button class="btn btn-primary" style="flex-shrink:0;padding:10px" onclick="addPickingItem()" title="Ajouter">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <button class="btn" style="flex-shrink:0;padding:10px" onclick="startPickingCamera()" title="Scanner">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
         </button>
       </div>
@@ -1250,33 +1253,31 @@ window.retirerDepuisRecherche = async function(pid, prodId) {
 let pickingList = [];
 let pickingCodeReader = null;
 let pickingScanning = false;
-let pickingDebounceTimer = null;
 
-window.debouncePicking = function() {
-  clearTimeout(pickingDebounceTimer);
-  const q = document.getElementById('picking-input').value.trim();
-  if (!q || q.length < 2) return;
-  pickingDebounceTimer = setTimeout(() => addPickingItem(false), 600);
-}
-
-window.addPickingItem = function(clearInput = true) {
-  clearTimeout(pickingDebounceTimer);
+// Recherche uniquement sur Entrée ou bouton +
+window.addPickingItem = function() {
   const input = document.getElementById('picking-input');
   const q = input.value.trim();
-  if (!q || q.length < 2) return;
-  if (pickingList.some(i => i.query === q)) { if(clearInput) input.value = ''; return; }
+  if (!q || q.length < 3) {
+    input.style.borderColor = '#fca5a5';
+    setTimeout(() => input.style.borderColor = '', 1000);
+    return;
+  }
+  input.value = '';
+  input.style.borderColor = '';
   const results = searchInPalettes(q);
+  let added = 0;
   results.forEach(r => {
     if (!pickingList.some(i => i.prodId && i.prodId === r.prodId)) {
       pickingList.push({ query: q, done: false, ...r });
+      added++;
     }
   });
-  if (clearInput) input.value = '';
   renderPickingResult();
+  input.focus();
 }
 
 window.addPickingCode = function(code) {
-  if (pickingList.some(i => i.query === code)) return;
   const results = searchInPalettes(code);
   results.forEach(r => {
     if (!pickingList.some(i => i.prodId && i.prodId === r.prodId)) {
@@ -1288,16 +1289,28 @@ window.addPickingCode = function(code) {
 
 function searchInPalettes(q) {
   const ql = q.toLowerCase();
+  const isNumeric = /^[0-9]+$/.test(q);
   const results = [];
   for (const pid of Object.keys(palettes)) {
     const prods = palettes[pid].produits || [];
     for (const pr of prods) {
-      if (!pr.sorti && (
-        pr.name.toLowerCase().includes(ql) ||
-        pr.code.toLowerCase().includes(ql) ||
-        (pr.brand||''). toLowerCase().includes(ql)
-      )) {
-        results.push({ found: true, pid, prodId: pr.id, name: pr.name, qty: pr.qty, cond: pr.cond, image: pr.image||null, code: pr.code, heure: pr.heure, ajoutePar: pr.ajoutePar });
+      if (pr.sorti) continue;
+      let match = false;
+      if (isNumeric) {
+        // Chiffres uniquement : chercher dans le code-barre (fin du code)
+        match = pr.code.endsWith(q) || pr.code.includes(q);
+      } else {
+        // Texte : chercher dans le nom et la marque
+        match = pr.name.toLowerCase().includes(ql) ||
+                (pr.brand||''). toLowerCase().includes(ql);
+      }
+      if (match) {
+        results.push({
+          found: true, pid, prodId: pr.id,
+          name: pr.name, qty: pr.qty, cond: pr.cond,
+          image: pr.image||null, code: pr.code,
+          heure: pr.heure, ajoutePar: pr.ajoutePar
+        });
       }
     }
   }
