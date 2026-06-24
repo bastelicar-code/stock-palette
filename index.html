@@ -1299,8 +1299,11 @@ function searchInPalettes(q) {
       const codeClean = (pr.code || '').trim();
       let match = false;
       if (isNumeric) {
-        // Fin du code-barre OU code exact (pour saisies manuelles courtes)
-        match = codeClean.endsWith(qClean) || codeClean === qClean;
+        // Fin du code-barre OU code exact OU nom exact (saisies manuelles)
+        match = codeClean.endsWith(qClean) || 
+                codeClean === qClean ||
+                pr.name.trim() === qClean ||
+                pr.name.trim().endsWith(qClean);
       } else {
         // Texte : chercher dans le nom et la marque
         match = pr.name.toLowerCase().includes(ql) ||
