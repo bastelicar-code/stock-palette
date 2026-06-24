@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Stock Palette">
+<link rel="manifest" href="manifest.json">
+<title>Stock Palette</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f4f4;color:#1a1a1a;max-width:480px;margin:0 auto;min-height:100vh}
+.header{background:#fff;border-bottom:1px solid #e5e5e5;padding:12px 16px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:100}
+.header h1{font-size:16px;font-weight:700;flex:1}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#ccc;flex-shrink:0}
+.sync-dot.ok{background:#22c55e}
+.sync-dot.syncing{background:#f59e0b;animation:pulse 1s infinite}
+.sync-dot.offline{background:#ef4444}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.wake-btn{font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #ddd;background:#fff;cursor:pointer;color:#666;white-space:nowrap}
+.wake-btn.active{background:#dcfce7;border-color:#86efac;color:#15803d}
+.tabs{display:flex;background:#fff;border-bottom:1px solid #e5e5e5;position:sticky;top:53px;z-index:99}
+.tab{flex:1;padding:10px 2px 8px;font-size:11px;font-weight:500;text-align:center;border:none;background:transparent;color:#999;cursor:pointer;border-bottom:2px solid transparent;display:flex;flex-direction:column;align-items:center;gap:2px}
+.tab svg{width:18px;height:18px;stroke-width:1.8}
+.tab.active{color:#1a1a1a;border-bottom-color:#1a1a1a}
+.page{display:none;padding:10px;flex-direction:column;gap:10px}
+.page.active{display:flex}
+.card{background:#fff;border-radius:12px;border:1px solid #e5e5e5;padding:13px}
+.card-title{font-size:12px;font-weight:700;margin-bottom:10px;color:#666;text-transform:uppercase;letter-spacing:0.5px}
+input,select{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;color:#1a1a1a;background:#fff;outline:none;font-family:inherit;appearance:none;-webkit-appearance:none}
+input:focus,select:focus{border-color:#1a1a1a}
+.btn{padding:9px 14px;border-radius:8px;border:1px solid #ddd;background:#fff;font-size:13px;font-weight:500;cursor:pointer;color:#1a1a1a;display:inline-flex;align-items:center;gap:5px;font-family:inherit;white-space:nowrap}
+.btn:active{transform:scale(0.97)}
+.btn-primary{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.btn-danger{color:#dc2626;border-color:#fca5a5;background:#fff}
+.btn-success{color:#15803d;border-color:#86efac;background:#fff}
+.btn-full{width:100%;justify-content:center}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-blue{background:#dbeafe;color:#1e40af}
+.badge-green{background:#dcfce7;color:#15803d}
+.badge-gray{background:#f3f4f6;color:#6b7280}
+.row{display:flex;align-items:flex-start;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f0f0;gap:8px}
+.row:last-child{border-bottom:none}
+.row-left{flex:1;min-width:0}
+.row-name{font-size:13px;color:#1a1a1a;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-sub{font-size:11px;color:#888;margin-top:2px}
+.row-img{width:40px;height:40px;border-radius:6px;object-fit:contain;background:#f9fafb;border:1px solid #eee;flex-shrink:0}
+.row-img-placeholder{width:40px;height:40px;border-radius:6px;background:#f3f4f6;border:1px solid #eee;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px}
+.scan-zone{border:2px dashed #ddd;border-radius:12px;padding:20px;text-align:center;cursor:pointer;background:#fafafa}
+.scan-zone svg{width:36px;height:36px;color:#bbb;margin-bottom:6px}
+.scan-zone p{font-size:13px;color:#999}
+#video-wrap{display:none;border-radius:12px;overflow:hidden;background:#000;position:relative}
+#video{width:100%;height:240px;object-fit:cover;display:block}
+.scan-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.scan-frame{width:220px;height:100px;border:2px solid #fff;border-radius:6px;position:relative}
+.scan-cross{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:30px;height:30px}
+.scan-cross::before,.scan-cross::after{content:'';position:absolute;background:#fff}
+.scan-cross::before{width:2px;height:30px;left:50%;transform:translateX(-50%)}
+.scan-cross::after{width:30px;height:2px;top:50%;transform:translateY(-50%)}
+.scan-hint{position:absolute;bottom:10px;left:0;right:0;text-align:center;color:rgba(255,255,255,0.8);font-size:12px}
+.status{font-size:12px;text-align:center;padding:5px;min-height:20px;font-weight:500}
+.result-ok{background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:13px;margin-bottom:8px}
+.result-ok .palette-num{font-size:28px;font-weight:800;color:#15803d}
+.result-ok .detail{font-size:13px;color:#166534;margin-top:4px}
+.result-none{background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:13px}
+.result-none p{font-size:13px;color:#dc2626}
+.offline-banner{background:#fef3c7;padding:7px 16px;font-size:12px;color:#92400e;text-align:center;display:none}
+.prenom-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;gap:14px;background:#f4f4f4}
+.prenom-screen h2{font-size:22px;font-weight:800;text-align:center}
+.prenom-screen p{font-size:14px;color:#666;text-align:center;line-height:1.5}
+.qty-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.qty-row label{font-size:11px;color:#888;display:block;margin-bottom:4px;font-weight:600;text-transform:uppercase}
+.stat-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.stat{background:#f9fafb;border-radius:8px;padding:10px;text-align:center}
+.stat-num{font-size:22px;font-weight:800;color:#1a1a1a}
+.stat-label{font-size:11px;color:#888;margin-top:2px}
+.empty{font-size:13px;color:#aaa;padding:16px 0;text-align:center}
+.edit-form{background:#f9fafb;border-radius:8px;padding:10px;margin-top:6px;display:none}
+.edit-form.open{display:block}
+.palette-card{background:#fff;border-radius:12px;border:1px solid #e5e5e5;padding:13px;margin-bottom:10px}
+.palette-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.modal-bg.hidden{display:none}
+.modal{background:#fff;border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:480px}
+.modal h3{font-size:16px;font-weight:700;margin-bottom:8px}
+.modal p{font-size:13px;color:#666;margin-bottom:12px}
+.modal-code{font-family:monospace;font-size:13px;background:#f3f4f6;padding:6px 10px;border-radius:6px;margin-bottom:12px;color:#888}
+.modal-btns{display:flex;gap:8px;margin-top:10px}
+</style>
+</head>
+<body>
+
+<!-- MODAL NOM PRODUIT -->
+<div class="modal-bg hidden" id="modal-nom">
+  <div class="modal">
+    <h3>Produit non reconnu</h3>
+    <p style="margin-bottom:10px">Ce produit n'est pas dans la base de données.</p>
+    <div style="background:#f3f4f6;border-radius:8px;padding:10px;margin-bottom:10px">
+      <div style="font-size:11px;color:#888;margin-bottom:4px;font-weight:600;text-transform:uppercase">Code-barre</div>
+      <div id="modal-code-display" style="font-family:monospace;font-size:15px;font-weight:700;color:#1a1a1a;word-break:break-all"></div>
+      <div id="modal-link-display" style="display:none;margin-top:6px">
+        <div style="font-size:11px;color:#888;margin-bottom:2px;font-weight:600;text-transform:uppercase">Lien</div>
+        <a id="modal-link-url" href="#" target="_blank" style="font-size:12px;color:#1e40af;word-break:break-all;text-decoration:underline"></a>
+      </div>
+    </div>
+    <input type="text" id="modal-nom-input" placeholder="Nom du produit (optionnel)..." style="margin-bottom:10px" />
+    <div id="modal-photo-preview" style="display:none;margin-bottom:10px">
+      <img id="modal-photo-preview-img" style="width:100%;max-height:150px;object-fit:contain;border-radius:8px;border:1px solid #eee;background:#f9fafb" />
+    </div>
+    <input type="file" id="modal-photo-file" accept="image/*" capture="environment" style="display:none" onchange="onModalPhotoSelected(event)" />
+    <button class="btn btn-full" style="margin-bottom:8px;border-style:dashed;color:#666" onclick="document.getElementById('modal-photo-file').click()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      Prendre une photo
+    </button>
+    <div class="modal-btns">
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="confirmNom()">Enregistrer</button>
+      <button class="btn" style="flex:1;justify-content:center" onclick="skipNom()">Sans nom</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PHOTO -->
+<div class="modal-bg hidden" id="modal-photo">
+  <div class="modal">
+    <h3>Photo du produit</h3>
+    <p>Entre un nom pour ce produit, puis prends une photo.</p>
+    <input type="text" id="photo-nom-input" placeholder="Nom du produit..." style="margin-bottom:10px" />
+    <div id="photo-preview" style="display:none;margin-bottom:10px">
+      <img id="photo-preview-img" style="width:100%;max-height:180px;object-fit:contain;border-radius:8px;border:1px solid #eee;background:#f9fafb" />
+    </div>
+    <input type="file" id="photo-file-input" accept="image/*" capture="environment" style="display:none" onchange="onPhotoSelected(event)" />
+    <div class="modal-btns">
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="document.getElementById('photo-file-input').click()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Prendre une photo
+      </button>
+      <button class="btn" style="flex:1;justify-content:center" onclick="closeModal('modal-photo')">Annuler</button>
+    </div>
+    <button class="btn btn-primary btn-full" id="photo-confirm-btn" style="margin-top:8px;display:none" onclick="confirmPhoto()">Enregistrer le produit</button>
+  </div>
+</div>
+
+<!-- MODAL VISIONNEUSE PHOTO -->
+<div class="modal-bg hidden" id="modal-viewer" onclick="closeModal('modal-viewer')" style="align-items:center;padding:20px">
+  <div style="position:relative;width:100%;max-width:480px">
+    <img id="viewer-img" style="width:100%;max-height:80vh;object-fit:contain;border-radius:12px;background:#000" />
+    <button class="btn" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.5);color:#fff;border-color:transparent;padding:6px 10px" onclick="closeModal('modal-viewer')">Fermer</button>
+    <div id="viewer-name" style="text-align:center;color:#fff;margin-top:8px;font-size:14px;font-weight:600"></div>
+  </div>
+</div>
+
+<!-- MODAL RENOMMER PALETTE -->
+<div class="modal-bg hidden" id="modal-rename">
+  <div class="modal">
+    <h3>Renommer la palette</h3>
+    <p>Entre un nouveau nom pour cette palette.</p>
+    <input type="text" id="modal-rename-input" placeholder="Ex: Vins, Crèmerie, PL001..." maxlength="20" />
+    <div class="modal-btns">
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="confirmRename()">Renommer</button>
+      <button class="btn" style="flex:1;justify-content:center" onclick="closeModal('modal-rename')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div id="prenom-screen" class="prenom-screen">
+  <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round"><path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 3H8a2 2 0 00-2 2v2h12V5a2 2 0 00-2-2z"/></svg>
+  <h2>Stock Palette</h2>
+  <p>Entre ton prénom pour commencer.<br>Il apparaîtra quand tu ajoutes ou retires un produit.</p>
+  <input type="text" id="prenom-input" placeholder="Ton prénom..." style="max-width:260px;text-align:center;font-size:16px" maxlength="20" />
+  <button class="btn btn-primary btn-full" style="max-width:260px" onclick="savePrenom()">Commencer</button>
+</div>
+
+<div id="app" style="display:none">
+  <div class="offline-banner" id="offline-banner">Hors-ligne — synchronisation à la reconnexion</div>
+  <div class="header">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 3H8a2 2 0 00-2 2v2h12V5a2 2 0 00-2-2z"/></svg>
+    <h1>Stock Palette</h1>
+    <span id="user-name" style="font-size:11px;color:#aaa"></span>
+    <button class="wake-btn" id="wake-btn" onclick="toggleWakeLock()">Écran actif</button>
+    <div class="sync-dot ok" id="sync-dot"></div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="showPage('scanner')" id="tab-scanner">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><rect x="7" y="8" width="10" height="8" rx="1"/></svg>
+      Scanner
+    </button>
+    <button class="tab" onclick="showPage('recherche')" id="tab-recherche">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Chercher
+    </button>
+    <button class="tab" onclick="showPage('palettes')" id="tab-palettes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1" fill="currentColor"/><circle cx="3" cy="12" r="1" fill="currentColor"/><circle cx="3" cy="18" r="1" fill="currentColor"/></svg>
+      Palettes
+    </button>
+    <button class="tab" onclick="showPage('picking')" id="tab-picking">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      Picking
+    </button>
+    <button class="tab" onclick="showPage('reglages')" id="tab-reglages">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Réglages
+    </button>
+  </div>
+
+  <!-- SCANNER -->
+  <div class="page active" id="page-scanner">
+    <div class="card">
+      <div class="card-title">Palette active</div>
+      <div style="display:flex;gap:8px">
+        <select id="palette-select" onchange="onPaletteChange()"></select>
+        <button class="btn" onclick="newPalette()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nouvelle
+        </button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Ajouter un produit</div>
+      <div class="scan-zone" onclick="startCamera()" id="scan-zone">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        <p>Appuyer pour scanner</p>
+      </div>
+      <div id="video-wrap">
+        <video id="video" autoplay playsinline muted></video>
+        <div class="scan-overlay">
+          <div class="scan-frame"><div class="scan-cross"></div></div>
+        </div>
+        <div class="scan-hint">Centrez le code-barre dans le cadre</div>
+        <div style="padding:10px;background:#1a1a1a">
+  <div style="display:flex;gap:8px">
+    <button id="torch-btn" class="btn" style="flex-shrink:0;padding:10px 14px;background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff;display:none" onclick="toggleTorch()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18h6M10 22h4M12 2v4M4.93 4.93l2.83 2.83M19.07 4.93l-2.83 2.83M2 12h4M18 12h4M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+      Torche
+    </button>
+    <button class="btn btn-danger btn-full" style="padding:14px;font-size:15px;font-weight:700;justify-content:center" onclick="stopCamera()">
+      ✕ &nbsp;Arrêter le scan
+    </button>
+  </div>
+</div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <input type="text" id="manual-input" placeholder="Nom ou code-barre..." />
+        <button class="btn btn-primary" onclick="addManual()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+      </div>
+      <div class="qty-row">
+        <div>
+          <label>Quantité</label>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="btn" style="padding:8px 12px;font-size:18px;font-weight:700;flex-shrink:0" onclick="changeQty(-1)">−</button>
+            <input type="number" id="qty-input" value="1" min="1" max="9999" style="text-align:center;flex:1" />
+            <button class="btn" style="padding:8px 12px;font-size:18px;font-weight:700;flex-shrink:0" onclick="changeQty(1)">+</button>
+          </div>
+        </div>
+        <div>
+          <label>Conditionnement</label>
+          <select id="cond-input">
+            <option value="unité">Unité</option>
+            <option value="carton" selected>Carton</option>
+            <option value="palette">Palette</option>
+            <option value="pack">Pack</option>
+            <option value="caisse">Caisse</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-full" style="margin-top:8px;border-style:dashed;color:#666" onclick="openPhotoCapture()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Produit sans code-barre — prendre une photo
+      </button>
+      <div class="status" id="scan-status"></div>
+    </div>
+    <div class="card" id="recent-card" style="display:none">
+      <div class="card-title">Derniers ajouts</div>
+      <div id="recent-list"></div>
+    </div>
+  </div>
+
+  <!-- RECHERCHE -->
+  <div class="page" id="page-recherche">
+    <div class="card">
+      <div class="card-title">Scanner une étiquette rayon</div>
+      <div class="scan-zone" onclick="startSearchCamera()" id="search-scan-zone">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        <p>Scanner le code-barre de l'étiquette</p>
+      </div>
+      <div id="search-video-wrap" style="display:none;border-radius:12px;overflow:hidden;background:#000;position:relative">
+        <video id="search-video" autoplay playsinline muted style="width:100%;height:240px;object-fit:cover;display:block"></video>
+        <div class="scan-overlay">
+          <div class="scan-frame"><div class="scan-cross"></div></div>
+        </div>
+        <div class="scan-hint">Centrez le code-barre dans le cadre</div>
+        <div style="padding:10px;background:#1a1a1a">
+  <div style="display:flex;gap:8px">
+    <button id="torch-search-btn" class="btn" style="flex-shrink:0;padding:10px 14px;background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff;display:none" onclick="toggleSearchTorch()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18h6M10 22h4M12 2v4M4.93 4.93l2.83 2.83M19.07 4.93l-2.83 2.83M2 12h4M18 12h4M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+      Torche
+    </button>
+    <button class="btn btn-danger btn-full" style="padding:14px;font-size:15px;font-weight:700;justify-content:center" onclick="stopSearchCamera()">
+      ✕ &nbsp;Arrêter le scan
+    </button>
+  </div>
+</div>
+      </div>
+      <div class="status" id="search-scan-status" style="margin-top:6px"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Recherche manuelle</div>
+      <input type="text" id="search-input" placeholder="Nom, code-barre ou derniers chiffres..." oninput="doSearch()" />
+      <div style="font-size:11px;color:#aaa;margin-top:6px">Exemples : "coca", "456", "vin rouge"</div>
+    </div>
+    <div id="search-result"></div>
+  </div>
+
+  <!-- PALETTES -->
+  <div class="page" id="page-palettes">
+    <div id="palettes-container"></div>
+    <button class="btn btn-full" style="background:#fff" onclick="newPalette()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Créer une nouvelle palette
+    </button>
+  </div>
+
+  <!-- PICKING -->
+  <div class="page" id="page-picking">
+    <div class="card">
+      <div class="card-title">Liste de picking</div>
+      <p style="font-size:12px;color:#888;margin-bottom:10px">Scanne ou tape les produits manquants en rayon. Ils se classent automatiquement par palette.</p>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input type="text" id="picking-input" placeholder="Nom ou code-barre..." oninput="debouncePicking()" onkeydown="if(event.key==='Enter') addPickingItem(true)" />
+        <button class="btn btn-primary" style="flex-shrink:0;padding:10px" onclick="startPickingCamera()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </button>
+      </div>
+      <div id="picking-video-wrap" style="display:none;border-radius:12px;overflow:hidden;background:#000;position:relative;margin-bottom:8px">
+        <video id="picking-video" autoplay playsinline muted style="width:100%;height:200px;object-fit:cover;display:block"></video>
+        <div class="scan-overlay"><div class="scan-frame"><div class="scan-cross"></div></div></div>
+        <div class="scan-hint">Centrez le code-barre dans le cadre</div>
+        <div style="padding:8px;background:#1a1a1a">
+          <button class="btn btn-danger btn-full" style="padding:12px;font-size:14px;font-weight:700;justify-content:center" onclick="stopPickingCamera()">✕ Arrêter le scan</button>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span id="picking-count" style="font-size:12px;color:#888"></span>
+        <button class="btn btn-danger" style="font-size:11px;padding:4px 10px" onclick="clearPicking()">Vider la liste</button>
+      </div>
+    </div>
+    <div id="picking-result"></div>
+  </div>
+
+  <!-- REGLAGES -->
+  <div class="page" id="page-reglages">
+    <div class="card">
+      <div class="card-title">Torche lors du scan</div>
+      <p style="font-size:13px;color:#666;margin-bottom:10px">Choisissez comment la torche fonctionne pendant le scan.</p>
+      <div style="display:flex;flex-direction:column;gap:8px" id="torch-options">
+        <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid #ddd;border-radius:8px;cursor:pointer">
+          <input type="radio" name="torch-mode" value="auto" style="width:auto" onchange="saveTorchMode(this.value)" />
+          <div>
+            <div style="font-size:14px;font-weight:500">Automatique</div>
+            <div style="font-size:12px;color:#888">S'allume dès l'ouverture du scanner</div>
+          </div>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid #ddd;border-radius:8px;cursor:pointer">
+          <input type="radio" name="torch-mode" value="manuel" style="width:auto" onchange="saveTorchMode(this.value)" />
+          <div>
+            <div style="font-size:14px;font-weight:500">Manuel</div>
+            <div style="font-size:12px;color:#888">Un bouton apparaît pour allumer quand tu veux</div>
+          </div>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid #ddd;border-radius:8px;cursor:pointer">
+          <input type="radio" name="torch-mode" value="off" style="width:auto" onchange="saveTorchMode(this.value)" />
+          <div>
+            <div style="font-size:14px;font-weight:500">Désactivée</div>
+            <div style="font-size:12px;color:#888">Pas de torche</div>
+          </div>
+        </label>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Préfixe des palettes</div>
+      <p style="font-size:13px;color:#666;margin-bottom:10px">Définit le début du numéro de chaque nouvelle palette.<br>Exemple : "PL" → PL001, PL002...</p>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="prefixe-input" placeholder="P" maxlength="5" style="text-transform:uppercase" />
+        <button class="btn btn-primary" onclick="savePrefixe()">Sauvegarder</button>
+      </div>
+      <div style="font-size:12px;color:#aaa;margin-top:8px" id="prefixe-preview"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Mon profil</div>
+      <p style="font-size:13px;color:#666;margin-bottom:10px">Connecté en tant que <strong id="profil-nom"></strong></p>
+      <button class="btn btn-danger" onclick="changePrenom()">Changer de prénom</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+import { getFirestore, collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCPWmhoXEv8MvaywyisUS6IayhK0iWElcQ",
+  authDomain: "stock-palette.firebaseapp.com",
+  projectId: "stock-palette",
+  storageBucket: "stock-palette.firebasestorage.app",
+  messagingSenderId: "79905435298",
+  appId: "1:79905435298:web:c9e0404b7ff042569ff1fb"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+enableIndexedDbPersistence(db).catch(() => {});
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/stock-palette/sw.js').catch(() => {});
+}
+
+let palettes = {};
+let prenom = localStorage.getItem('sp_prenom') || '';
+let prefixe = localStorage.getItem('sp_prefixe') || 'P';
+let torchMode = localStorage.getItem('sp_torch') || 'manuel';
+let codeReader = null;
+let scanning = false;
+let wakeLock = null;
+let pendingCode = null;
+let pendingRenameId = null;
+let currentPage = 'scanner';
+let torchTrack = null;
+let searchTorchTrack = null;
+
+// Historique navigation pour bouton retour
+const pageHistory = ['scanner'];
+window.addEventListener('popstate', () => {
+  if (pageHistory.length > 1) {
+    pageHistory.pop();
+    const prev = pageHistory[pageHistory.length - 1];
+    showPageInternal(prev);
+  } else {
+    history.pushState(null, '', location.href);
+  }
+});
+history.pushState(null, '', location.href);
+
+// Wake Lock
+window.toggleWakeLock = async function() {
+  const btn = document.getElementById('wake-btn');
+  if (wakeLock) {
+    await wakeLock.release();
+    wakeLock = null;
+    btn.classList.remove('active');
+    btn.textContent = 'Écran actif';
+  } else {
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      btn.classList.add('active');
+      btn.textContent = '● Écran actif';
+      wakeLock.addEventListener('release', () => {
+        wakeLock = null;
+        btn.classList.remove('active');
+        btn.textContent = 'Écran actif';
+      });
+    } catch(e) {
+      showStatus('Non supporté sur ce téléphone', 'warn');
+    }
+  }
+}
+
+// Sync
+function setSyncStatus(s) {
+  document.getElementById('sync-dot').className = 'sync-dot ' + s;
+  document.getElementById('offline-banner').style.display = s === 'offline' ? 'block' : 'none';
+}
+window.addEventListener('online', () => setSyncStatus('ok'));
+window.addEventListener('offline', () => setSyncStatus('offline'));
+setSyncStatus(navigator.onLine ? 'ok' : 'offline');
+
+// Prenom
+if (prenom) {
+  document.getElementById('prenom-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('user-name').textContent = prenom;
+  document.getElementById('profil-nom').textContent = prenom;
+  initPrefixe();
+  initFirestore();
+}
+
+window.savePrenom = function() {
+  const v = document.getElementById('prenom-input').value.trim();
+  if (!v) return;
+  prenom = v;
+  localStorage.setItem('sp_prenom', v);
+  document.getElementById('prenom-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('user-name').textContent = prenom;
+  document.getElementById('profil-nom').textContent = prenom;
+  initPrefixe();
+  initFirestore();
+}
+
+window.changePrenom = function() {
+  if (!confirm('Changer de prénom ?')) return;
+  localStorage.removeItem('sp_prenom');
+  location.reload();
+}
+
+document.getElementById('prenom-input').addEventListener('keydown', e => { if(e.key==='Enter') window.savePrenom(); });
+
+// Prefixe
+function initPrefixe() {
+  document.getElementById('prefixe-input').value = prefixe;
+  updatePrefixePreview();
+  // Init torche
+  const radios = document.querySelectorAll('input[name="torch-mode"]');
+  radios.forEach(r => { if (r.value === torchMode) r.checked = true; });
+}
+
+window.saveTorchMode = function(val) {
+  torchMode = val;
+  localStorage.setItem('sp_torch', val);
+}
+
+async function applyTorch(track, on) {
+  if (!track) return;
+  try { await track.applyConstraints({ advanced: [{ torch: on }] }); } catch(e) {}
+}
+
+window.toggleTorch = async function() {
+  const btn = document.getElementById('torch-btn');
+  const isOn = btn.dataset.on === '1';
+  await applyTorch(torchTrack, !isOn);
+  btn.dataset.on = isOn ? '0' : '1';
+  btn.style.background = isOn ? 'rgba(255,255,255,0.1)' : 'rgba(255,200,0,0.3)';
+}
+
+window.toggleSearchTorch = async function() {
+  const btn = document.getElementById('torch-search-btn');
+  const isOn = btn.dataset.on === '1';
+  await applyTorch(searchTorchTrack, !isOn);
+  btn.dataset.on = isOn ? '0' : '1';
+  btn.style.background = isOn ? 'rgba(255,255,255,0.1)' : 'rgba(255,200,0,0.3)';
+}
+
+window.savePrefixe = function() {
+  const v = document.getElementById('prefixe-input').value.trim().toUpperCase() || 'P';
+  prefixe = v;
+  localStorage.setItem('sp_prefixe', v);
+  document.getElementById('prefixe-input').value = v;
+  updatePrefixePreview();
+  showStatus('Préfixe sauvegardé : ' + v, 'ok');
+}
+
+function updatePrefixePreview() {
+  const v = (document.getElementById('prefixe-input').value.trim().toUpperCase() || 'P');
+  document.getElementById('prefixe-preview').textContent = 'Aperçu : ' + v + '001, ' + v + '002, ' + v + '003...';
+}
+const prefixeEl = document.getElementById('prefixe-input'); if (prefixeEl) prefixeEl.addEventListener('input', updatePrefixePreview);
+
+// Firebase
+function initFirestore() {
+  setSyncStatus('syncing');
+  onSnapshot(collection(db, 'palettes'), snap => {
+    palettes = {};
+    snap.forEach(d => { palettes[d.id] = d.data(); });
+    setSyncStatus('ok');
+    renderAll();
+  }, () => setSyncStatus('offline'));
+}
+
+function renderAll() {
+  renderSelect();
+  renderPalettesPage();
+  const pid = document.getElementById('palette-select').value;
+  if (pid && palettes[pid]) renderRecent(pid);
+}
+
+function renderSelect() {
+  const sel = document.getElementById('palette-select');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">-- Choisir une palette --</option>';
+  Object.keys(palettes).sort().forEach(id => {
+    const p = palettes[id];
+    const actifs = (p.produits||[]).filter(x => !x.sorti).length;
+    const label = p.label || id;
+    const o = document.createElement('option');
+    o.value = id;
+    o.textContent = label + (p.cloturee ? ' [clôt.]' : '') + ' — ' + actifs + ' en stock';
+    sel.appendChild(o);
+  });
+  if (cur && palettes[cur]) sel.value = cur;
+}
+
+window.onPaletteChange = function() {
+  const pid = document.getElementById('palette-select').value;
+  if (pid) renderRecent(pid);
+  else document.getElementById('recent-card').style.display = 'none';
+}
+
+window.newPalette = async function() {
+  setSyncStatus('syncing');
+  const ids = Object.keys(palettes)
+    .filter(id => id.startsWith(prefixe))
+    .map(id => parseInt(id.replace(prefixe, '')))
+    .filter(n => !isNaN(n));
+  const next = ids.length ? Math.max(...ids) + 1 : 1;
+  const id = prefixe + String(next).padStart(3, '0');
+  await setDoc(doc(db, 'palettes', id), {
+    produits: [], historique: [], cloturee: false,
+    creee: new Date().toLocaleDateString('fr-FR'), creePar: prenom, label: ''
+  });
+  setTimeout(() => {
+    document.getElementById('palette-select').value = id;
+    renderRecent(id);
+    // Ouvrir popup renommage immédiatement
+    openRenameNew(id);
+  }, 600);
+}
+
+window.openRenameNew = function(pid) {
+  pendingRenameId = pid;
+  const modal = document.getElementById('modal-rename');
+  const input = document.getElementById('modal-rename-input');
+  const title = modal.querySelector('h3');
+  const p = modal.querySelector('p');
+  title.textContent = 'Nommer la palette ' + pid;
+  p.textContent = 'Laisse vide pour garder le numéro automatique, ou entre un nom personnalisé.';
+  input.value = '';
+  input.placeholder = 'Ex: Vins rouges, Crèmerie... (optionnel)';
+  modal.classList.remove('hidden');
+  setTimeout(() => input.focus(), 100);
+}
+
+// Renommer palette
+window.openRename = function(pid) {
+  pendingRenameId = pid;
+  const p = palettes[pid];
+  document.getElementById('modal-rename-input').value = p.label || '';
+  document.getElementById('modal-rename').classList.remove('hidden');
+  setTimeout(() => document.getElementById('modal-rename-input').focus(), 100);
+}
+
+window.confirmRename = async function() {
+  if (!pendingRenameId) return;
+  const v = document.getElementById('modal-rename-input').value.trim();
+  await updateDoc(doc(db, 'palettes', pendingRenameId), { label: v });
+  closeModal('modal-rename');
+  pendingRenameId = null;
+}
+
+window.closeModal = function(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+
+// Modal nom produit
+let pendingModalPhoto = null;
+
+window.onModalPhotoSelected = function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const MAX = 300;
+      let w = img.width, h = img.height;
+      if (w > h) { if (w > MAX) { h = h * MAX / w; w = MAX; } }
+      else { if (h > MAX) { w = w * MAX / h; h = MAX; } }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      pendingModalPhoto = canvas.toDataURL('image/jpeg', 0.7);
+      document.getElementById('modal-photo-preview-img').src = pendingModalPhoto;
+      document.getElementById('modal-photo-preview').style.display = 'block';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+window.onEditPhotoSelected = function(event, pid, prodId) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const MAX = 300;
+      let w = img.width, h = img.height;
+      if (w > h) { if (w > MAX) { h = h * MAX / w; w = MAX; } }
+      else { if (h > MAX) { w = w * MAX / h; h = MAX; } }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const compressed = canvas.toDataURL('image/jpeg', 0.7);
+      // Stocker temporairement dans un data attribute
+      const btn = document.querySelector(`#ef-${prodId}`);
+      if (btn) btn.dataset.photo = compressed;
+      // Afficher aperçu dans le formulaire
+      const existingImg = document.querySelector(`#row-${prodId} .row-img, #row-${prodId} .row-img-placeholder`);
+      if (existingImg) {
+        const newImg = document.createElement('img');
+        newImg.src = compressed;
+        newImg.className = 'row-img';
+        newImg.style.cursor = 'pointer';
+        newImg.onclick = function() { openViewer(compressed, ''); };
+        existingImg.replaceWith(newImg);
+      }
+      showStatus('Photo prête — appuie sur Enregistrer', 'ok');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+window.confirmNom = function() {
+  if (!pendingCode) return;
+  const nom = document.getElementById('modal-nom-input').value.trim();
+  document.getElementById('modal-nom').classList.add('hidden');
+  addProductFinal(pendingCode.code, nom || pendingCode.code, pendingModalPhoto || null, null);
+  pendingCode = null;
+  pendingModalPhoto = null;
+  document.getElementById('modal-photo-preview').style.display = 'none';
+}
+
+window.skipNom = function() {
+  if (!pendingCode) return;
+  document.getElementById('modal-nom').classList.add('hidden');
+  addProductFinal(pendingCode.code, pendingCode.code, pendingModalPhoto || null, null);
+  pendingCode = null;
+  pendingModalPhoto = null;
+  document.getElementById('modal-photo-preview').style.display = 'none';
+}
+
+// Open Food Facts
+async function fetchProductInfo(code) {
+  try {
+    const r = await fetch('https://world.openfoodfacts.org/api/v0/product/' + code + '.json');
+    const data = await r.json();
+    if (data.status === 1 && data.product) {
+      const name = data.product.product_name_fr || data.product.product_name || data.product.brands || '';
+      if (name) {
+        return {
+          name,
+          image: data.product.image_front_small_url || null,
+          brand: data.product.brands || ''
+        };
+      }
+    }
+  } catch(e) {}
+  return null;
+}
+
+window.addManual = function() {
+  const v = document.getElementById('manual-input').value.trim();
+  if (!v) return;
+  addProductFinal(v, v, null, null);
+  document.getElementById('manual-input').value = '';
+}
+
+async function addProduct(code) {
+  showStatus('Code détecté — recherche du produit...', 'ok');
+  const info = await fetchProductInfo(code);
+  if (info && info.name) {
+    addProductFinal(code, info.name, info.image, info.brand);
+  } else {
+    // Produit non trouvé : afficher modal pour nom
+    pendingCode = { code };
+    document.getElementById('modal-code-display').textContent = code;
+    document.getElementById('modal-nom-input').value = '';
+    document.getElementById('modal-photo-preview').style.display = 'none';
+    pendingModalPhoto = null;
+    // Si le code est une URL, l'afficher comme lien cliquable
+    const isUrl = code.startsWith('http://') || code.startsWith('https://');
+    const linkDiv = document.getElementById('modal-link-display');
+    if (isUrl) {
+      const linkEl = document.getElementById('modal-link-url');
+      linkEl.href = code;
+      linkEl.textContent = code;
+      linkDiv.style.display = 'block';
+      document.getElementById('modal-code-display').textContent = '(URL encodée)';
+    } else {
+      linkDiv.style.display = 'none';
+    }
+    document.getElementById('modal-nom').classList.remove('hidden');
+    setTimeout(() => document.getElementById('modal-nom-input').focus(), 100);
+  }
+}
+
+async function addProductFinal(code, name, image, brand) {
+  const pid = document.getElementById('palette-select').value;
+  if (!pid) { showStatus('Choisissez une palette', 'warn'); return; }
+  const p = palettes[pid];
+  if (!p) return;
+  if (p.cloturee) {
+    if (!confirm('Cette palette est clôturée. La rouvrir pour ajouter ?')) return;
+    await updateDoc(doc(db, 'palettes', pid), { cloturee: false });
+  }
+  const qty = parseInt(document.getElementById('qty-input').value) || 1;
+  const cond = document.getElementById('cond-input').value;
+  const heure = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+  const produit = {
+    id: Date.now().toString(), code,
+    name: name || code, image: image || null, brand: brand || '',
+    qty, cond, heure, ajoutePar: prenom, sorti: false
+  };
+  const hist = { action:'ajout', code, name: name||code, qty, cond, heure, par: prenom };
+  const produits = [...(p.produits||[]), produit];
+  const historique = [...(p.historique||[]), hist];
+  setSyncStatus('syncing');
+  await updateDoc(doc(db, 'palettes', pid), { produits, historique });
+  playBeep();
+  showStatus('Ajouté : ' + (name||code), 'ok');
+  // Remettre la quantité à 1 après chaque ajout
+  document.getElementById('qty-input').value = 1;
+}
+
+window.changeQty = function(delta) {
+  const input = document.getElementById('qty-input');
+  const current = parseInt(input.value) || 1;
+  const next = Math.max(1, current + delta);
+  input.value = next;
+}
+
+let pendingPhotoData = null;
+
+window.openPhotoCapture = function() {
+  const pid = document.getElementById('palette-select').value;
+  if (!pid) { showStatus('Choisissez une palette', 'warn'); return; }
+  document.getElementById('photo-nom-input').value = '';
+  document.getElementById('photo-preview').style.display = 'none';
+  document.getElementById('photo-confirm-btn').style.display = 'none';
+  pendingPhotoData = null;
+  document.getElementById('modal-photo').classList.remove('hidden');
+}
+
+window.onPhotoSelected = function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    // Compresser la photo
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const MAX = 300;
+      let w = img.width, h = img.height;
+      if (w > h) { if (w > MAX) { h = h * MAX / w; w = MAX; } }
+      else { if (h > MAX) { w = w * MAX / h; h = MAX; } }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const compressed = canvas.toDataURL('image/jpeg', 0.7);
+      pendingPhotoData = compressed;
+      document.getElementById('photo-preview-img').src = compressed;
+      document.getElementById('photo-preview').style.display = 'block';
+      document.getElementById('photo-confirm-btn').style.display = 'flex';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+window.confirmPhoto = async function() {
+  if (!pendingPhotoData) return;
+  const nom = document.getElementById('photo-nom-input').value.trim();
+  const code = 'PHOTO_' + Date.now();
+  closeModal('modal-photo');
+  showStatus('Enregistrement de la photo...', 'ok');
+  // Stocker la photo en base64 directement dans Firestore
+  await addProductFinal(code, nom || 'Produit photo', pendingPhotoData, '');
+  pendingPhotoData = null;
+}
+
+window.openViewer = function(src, name) {
+  document.getElementById('viewer-img').src = src;
+  document.getElementById('viewer-name').textContent = name || '';
+  document.getElementById('modal-viewer').classList.remove('hidden');
+}
+
+window.changeEditQty = function(prodId, delta) {
+  const input = document.getElementById('eq-' + prodId);
+  if (!input) return;
+  input.value = Math.max(1, (parseInt(input.value) || 1) + delta);
+}
+
+function playBeep() {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+    osc.start(); osc.stop(ctx.currentTime + 0.15);
+  } catch(e) {}
+}
+
+window.startCamera = async function() {
+  const pid = document.getElementById('palette-select').value;
+  if (!pid) { showStatus('Choisissez une palette', 'warn'); return; }
+  document.getElementById('scan-zone').style.display = 'none';
+  document.getElementById('video-wrap').style.display = 'block';
+  try {
+    const { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } = await import('https://esm.sh/@zxing/library@0.19.1');
+    const hints = new Map();
+    hints.set(DecodeHintType.TRY_HARDER, true);
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+      BarcodeFormat.EAN_13, BarcodeFormat.EAN_8,
+      BarcodeFormat.CODE_128, BarcodeFormat.CODE_39,
+      BarcodeFormat.QR_CODE, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E
+    ]);
+    codeReader = new BrowserMultiFormatReader(hints, 300);
+    scanning = true;
+    await codeReader.decodeFromVideoDevice(null, 'video', async (result, err) => {
+      if (result && scanning) {
+        scanning = false;
+        stopCamera();
+        await addProduct(result.getText());
+      }
+    });
+    // Torche
+    const stream = document.getElementById('video').srcObject;
+    if (stream) {
+      torchTrack = stream.getVideoTracks()[0];
+      const torchBtn = document.getElementById('torch-btn');
+      if (torchMode === 'auto') {
+        torchBtn.style.display = 'none';
+        await applyTorch(torchTrack, true);
+      } else if (torchMode === 'manuel') {
+        torchBtn.style.display = 'flex';
+        torchBtn.dataset.on = '0';
+      } else {
+        torchBtn.style.display = 'none';
+      }
+    }
+  } catch(e) {
+    stopCamera();
+    showStatus('Caméra non disponible', 'warn');
+  }
+}
+
+window.stopCamera = function() {
+  scanning = false;
+  if (torchTrack) { try { applyTorch(torchTrack, false); } catch(e){} torchTrack = null; }
+  if (codeReader) { try { codeReader.reset(); } catch(e){} codeReader = null; }
+  document.getElementById('scan-zone').style.display = 'block';
+  document.getElementById('video-wrap').style.display = 'none';
+}
+
+let searchCodeReader = null;
+let searchScanning = false;
+
+window.startSearchCamera = async function() {
+  document.getElementById('search-scan-zone').style.display = 'none';
+  document.getElementById('search-video-wrap').style.display = 'block';
+  showSearchStatus('Prêt — pointez sur l\'étiquette du rayon', 'ok');
+  try {
+    const { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } = await import('https://esm.sh/@zxing/library@0.19.1');
+    const hints = new Map();
+    hints.set(DecodeHintType.TRY_HARDER, true);
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+      BarcodeFormat.EAN_13, BarcodeFormat.EAN_8,
+      BarcodeFormat.CODE_128, BarcodeFormat.CODE_39,
+      BarcodeFormat.UPC_A, BarcodeFormat.UPC_E
+    ]);
+    searchCodeReader = new BrowserMultiFormatReader(hints, 300);
+    searchScanning = true;
+    await searchCodeReader.decodeFromVideoDevice(null, 'search-video', (result, err) => {
+      if (result && searchScanning) {
+        searchScanning = false;
+        const code = result.getText();
+        stopSearchCamera();
+        document.getElementById('search-input').value = code;
+        doSearch();
+        showSearchStatus('Code détecté : ' + code, 'ok');
+        playBeep();
+      }
+    });
+    // Torche
+    const stream = document.getElementById('search-video').srcObject;
+    if (stream) {
+      searchTorchTrack = stream.getVideoTracks()[0];
+      const torchBtn = document.getElementById('torch-search-btn');
+      if (torchMode === 'auto') {
+        torchBtn.style.display = 'none';
+        await applyTorch(searchTorchTrack, true);
+      } else if (torchMode === 'manuel') {
+        torchBtn.style.display = 'flex';
+        torchBtn.dataset.on = '0';
+      } else {
+        torchBtn.style.display = 'none';
+      }
+    }
+  } catch(e) {
+    stopSearchCamera();
+    showSearchStatus('Caméra non disponible', 'warn');
+  }
+}
+
+window.stopSearchCamera = function() {
+  searchScanning = false;
+  if (searchTorchTrack) { try { applyTorch(searchTorchTrack, false); } catch(e){} searchTorchTrack = null; }
+  if (searchCodeReader) { try { searchCodeReader.reset(); } catch(e){} searchCodeReader = null; }
+  document.getElementById('search-scan-zone').style.display = 'block';
+  document.getElementById('search-video-wrap').style.display = 'none';
+}
+
+function showSearchStatus(msg, type) {
+  const el = document.getElementById('search-scan-status');
+  el.textContent = msg;
+  el.style.color = type === 'ok' ? '#15803d' : '#d97706';
+  if (type === 'ok') setTimeout(() => { if(el.textContent === msg) el.textContent = ''; }, 4000);
+}
+
+function showStatus(msg, type) {
+  const el = document.getElementById('scan-status');
+  el.textContent = msg;
+  el.style.color = type === 'ok' ? '#15803d' : '#d97706';
+  if (type === 'ok') setTimeout(() => { if(el.textContent === msg) el.textContent = ''; }, 4000);
+}
+
+function productHTML(pr, pid) {
+  const img = pr.image
+    ? `<img src="${pr.image}" class="row-img" loading="lazy" onclick="openViewer(this.src,this.dataset.name)" data-name="${pr.name}" onerror="this.style.display='none'" style="cursor:pointer" />`
+    : `<div class="row-img-placeholder">📦</div>`;
+  const editId = 'edit-' + pr.id;
+  return `<div class="row" id="row-${pr.id}">
+    ${img}
+    <div class="row-left">
+      <div class="row-name">${pr.name}</div>
+      <div class="row-sub">${pr.qty} ${pr.cond}${pr.brand?' · '+pr.brand:''} · ${pr.heure} · ${pr.ajoutePar}</div>
+      <div class="row-sub" style="font-family:monospace;font-size:10px;color:#bbb">${pr.code}</div>
+      ${pr.sorti?`<div style="font-size:11px;color:#dc2626;margin-top:2px">Sorti ${pr.sortieHeure||''} par ${pr.sortiePar||''}</div>`:''}
+      ${!pr.sorti?`
+        <div class="edit-form" id="${editId}">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+            <div><label style="font-size:11px;color:#888;display:block;margin-bottom:3px">Quantité</label>
+            <div style="display:flex;align-items:center;gap:6px">
+              <button class="btn" style="padding:8px 14px;font-size:18px;font-weight:700;flex-shrink:0;min-width:40px" onclick="changeEditQty('${pr.id}',-1)">&#8722;</button>
+              <input type="number" id="eq-${pr.id}" value="${pr.qty}" min="1" style="text-align:center;padding:8px;width:70px;min-width:70px;color:#1a1a1a;background:#fff;border:1px solid #ddd;border-radius:8px;font-size:16px;font-weight:600"/>
+              <button class="btn" style="padding:8px 14px;font-size:18px;font-weight:700;flex-shrink:0;min-width:40px" onclick="changeEditQty('${pr.id}',1)">+</button>
+            </div></div>
+            <div><label style="font-size:11px;color:#888;display:block;margin-bottom:3px">Conditionnement</label>
+            <select id="ec-${pr.id}" style="padding:6px">
+              ${['unité','carton','palette','pack','caisse'].map(c=>`<option${c===pr.cond?' selected':''}>${c}</option>`).join('')}
+            </select></div>
+          </div>
+          <input type="text" id="en-${pr.id}" value="${pr.name}" placeholder="Nom du produit" style="margin-bottom:6px;padding:6px" />
+          <input type="file" id="ef-${pr.id}" accept="image/*" capture="environment" style="display:none" onchange="onEditPhotoSelected(event,'${pid}','${pr.id}')" />
+          <button class="btn btn-full" style="font-size:12px;padding:6px;margin-bottom:6px;border-style:dashed;color:#666" onclick="document.getElementById('ef-${pr.id}').click()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            ${pr.image ? 'Changer la photo' : 'Ajouter une photo'}
+          </button>
+          <button class="btn btn-primary btn-full" style="font-size:12px;padding:6px" onclick="saveEdit('${pid}','${pr.id}')">Enregistrer</button>
+        </div>`:''
+      }
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0">
+      ${pr.sorti
+        ? '<span class="badge badge-gray">Sorti</span>'
+        : `<button class="btn btn-success" style="padding:5px 8px;font-size:11px" onclick="retirerProduit('${pid}','${pr.id}')">Sortir</button>
+           <button class="btn" style="padding:4px 8px;font-size:11px" onclick="toggleEdit('${pr.id}')">Modifier</button>`}
+    </div>
+  </div>`;
+}
+
+function renderRecent(pid) {
+  const p = palettes[pid];
+  if (!p) return;
+  const card = document.getElementById('recent-card');
+  const list = document.getElementById('recent-list');
+  const prods = [...(p.produits||[])].reverse().slice(0, 8);
+  if (!prods.length) { card.style.display='none'; return; }
+  card.style.display = 'block';
+  list.innerHTML = prods.map(pr => productHTML(pr, pid)).join('');
+}
+
+window.toggleEdit = function(prodId) {
+  const el = document.getElementById('edit-' + prodId);
+  if (el) el.classList.toggle('open');
+}
+
+window.saveEdit = async function(pid, prodId) {
+  const p = palettes[pid];
+  if (!p) return;
+  const newQty = parseInt(document.getElementById('eq-' + prodId).value) || 1;
+  const newCond = document.getElementById('ec-' + prodId).value;
+  const newName = document.getElementById('en-' + prodId).value.trim() || '';
+  const heure = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+  // Récupérer la photo si une nouvelle a été sélectionnée
+  const photoInput = document.getElementById('ef-' + prodId);
+  const newPhoto = photoInput ? photoInput.dataset.photo : null;
+  const prod = (p.produits||[]).find(pr => pr.id === prodId);
+  const produits = (p.produits||[]).map(pr =>
+    pr.id === prodId ? {...pr, qty:newQty, cond:newCond, name:newName||pr.name, image: newPhoto || pr.image} : pr
+  );
+  const hist = { action:'modification', name:newName||prod?.name, qty:newQty, cond:newCond, heure, par:prenom };
+  setSyncStatus('syncing');
+  await updateDoc(doc(db, 'palettes', pid), { produits, historique:[...(p.historique||[]),hist] });
+  showStatus('Modifié', 'ok');
+}
+
+window.retirerProduit = async function(pid, prodId) {
+  if (!confirm('Confirmer la sortie en rayon ?')) return;
+  const p = palettes[pid];
+  if (!p) return;
+  const heure = new Date().toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+  const prod = (p.produits||[]).find(pr => pr.id === prodId);
+  const produits = (p.produits||[]).map(pr =>
+    pr.id === prodId ? {...pr, sorti:true, sortiePar:prenom, sortieHeure:heure} : pr
+  );
+  const hist = { action:'sortie', name:prod?.name, qty:prod?.qty, cond:prod?.cond, heure, par:prenom };
+  setSyncStatus('syncing');
+  await updateDoc(doc(db, 'palettes', pid), { produits, historique:[...(p.historique||[]),hist] });
+}
+
+window.cloturerPalette = async function(pid) {
+  if (!confirm('Clôturer la palette ' + pid + ' ?')) return;
+  await updateDoc(doc(db, 'palettes', pid), { cloturee: true });
+}
+
+window.rouvrirPalette = async function(pid) {
+  await updateDoc(doc(db, 'palettes', pid), { cloturee: false });
+}
+
+window.supprimerPalette = async function(pid) {
+  if (!confirm('Supprimer définitivement la palette ' + pid + ' ?')) return;
+  await deleteDoc(doc(db, 'palettes', pid));
+}
+
+window.toggleDetail = function(id) {
+  const el = document.getElementById('detail-' + id);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function renderPalettesPage() {
+  const container = document.getElementById('palettes-container');
+  const ids = Object.keys(palettes).sort((a, b) => {
+    const da = palettes[a].creee || '';
+    const db = palettes[b].creee || '';
+    // Tri par id décroissant (plus récent en haut) car date FR pas facilement comparable
+    return b.localeCompare(a);
+  });
+  if (!ids.length) {
+    container.innerHTML = '<div class="card"><p class="empty">Aucune palette créée.</p></div>';
+    return;
+  }
+  container.innerHTML = ids.map(id => {
+    const p = palettes[id];
+    const total = (p.produits||[]).length;
+    const actifs = (p.produits||[]).filter(x => !x.sorti).length;
+    const sortis = total - actifs;
+    const hist = [...(p.historique||[])].reverse().slice(0, 8);
+    const label = p.label || id;
+    const sublabel = p.label ? id : '';
+    return `<div class="palette-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:18px;font-weight:800">${label}</span>
+          ${sublabel ? `<span style="font-size:11px;color:#aaa;font-family:monospace">${sublabel}</span>` : ''}
+          <span class="badge ${p.cloturee?'badge-gray':'badge-blue'}">${p.cloturee?'Clôturée':'Ouverte'}</span>
+        </div>
+        <span style="font-size:11px;color:#aaa">${p.creee||''}</span>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><div class="stat-num">${actifs}</div><div class="stat-label">En stock</div></div>
+        <div class="stat"><div class="stat-num" style="color:#aaa">${sortis}</div><div class="stat-label">Sortis</div></div>
+        <div class="stat"><div class="stat-num" style="color:#6b7280">${total}</div><div class="stat-label">Total</div></div>
+      </div>
+      <div id="detail-${id}" style="display:none">
+        <div style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Produits</div>
+        ${(p.produits||[]).length?(p.produits||[]).map(pr=>productHTML(pr,id)).join(''):'<p class="empty">Aucun produit</p>'}
+        <div style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;margin:10px 0 6px">Historique</div>
+        ${hist.length?hist.map(h=>`
+          <div style="font-size:12px;padding:5px 0;border-bottom:1px solid #f5f5f5;color:${h.action==='ajout'?'#15803d':h.action==='sortie'?'#dc2626':'#666'}">
+            ${h.action==='ajout'?'+ Ajout':h.action==='sortie'?'- Sortie':'✎ Modif'} — ${h.name||''} (${h.qty||''} ${h.cond||''}) · ${h.heure} · <strong>${h.par}</strong>
+          </div>`).join(''):'<p class="empty">Aucun historique</p>'}
+      </div>
+      <div class="palette-actions">
+        <button class="btn" style="font-size:12px;padding:6px 10px" onclick="toggleDetail('${id}')">Détail</button>
+        <button class="btn" style="font-size:12px;padding:6px 10px" onclick="openRename('${id}')">Renommer</button>
+        ${p.cloturee
+          ?`<button class="btn btn-success" style="font-size:12px;padding:6px 10px" onclick="rouvrirPalette('${id}')">Rouvrir</button>`
+          :`<button class="btn" style="font-size:12px;padding:6px 10px" onclick="cloturerPalette('${id}')">Clôturer</button>`}
+        <button class="btn btn-danger" style="font-size:12px;padding:6px 10px;margin-left:auto" onclick="supprimerPalette('${id}')">Supprimer</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.doSearch = function() {
+  const q = document.getElementById('search-input').value.trim().toLowerCase();
+  const res = document.getElementById('search-result');
+  if (!q) { res.innerHTML=''; return; }
+  const found = [];
+  Object.keys(palettes).forEach(pid => {
+    (palettes[pid].produits||[]).forEach(pr => {
+      const nameMatch = pr.name.toLowerCase().includes(q);
+      const codeMatch = pr.code.toLowerCase().includes(q);
+      const brandMatch = (pr.brand||'').toLowerCase().includes(q);
+      if (!pr.sorti && (nameMatch || codeMatch || brandMatch)) {
+        found.push({ pid, ...pr });
+      }
+    });
+  });
+  if (!found.length) {
+    res.innerHTML = `<div class="result-none">
+      <p>Produit introuvable en stock palette.</p>
+      <p style="margin-top:4px;font-size:11px;color:#aaa">Il est peut-être déjà en rayon ou n'a pas été scanné.</p>
+    </div>`;
+    return;
+  }
+  res.innerHTML = found.map(f => {
+    const img = f.image
+      ? `<img src="${f.image}" style="width:48px;height:48px;object-fit:contain;border-radius:6px;background:#f9fafb;border:1px solid #eee;margin-right:10px;float:left"/>`
+      : `<div style="width:48px;height:48px;border-radius:6px;background:#f3f4f6;display:inline-flex;align-items:center;justify-content:center;font-size:22px;margin-right:10px;float:left">📦</div>`;
+    const palLabel = palettes[f.pid]?.label || f.pid;
+    return `<div class="result-ok">
+      <div style="overflow:hidden">
+        ${img}
+        <div>
+          <div style="font-size:11px;color:#15803d;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Trouvé</div>
+          <div class="palette-num">Palette ${palLabel}</div>
+          <div class="detail"><strong>${f.name}</strong>${f.brand?' — '+f.brand:''}</div>
+          <div class="detail">${f.qty} ${f.cond} · Ajouté à ${f.heure} par ${f.ajoutePar}</div>
+          <div class="detail" style="font-family:monospace;font-size:11px;margin-top:2px;color:#aaa">${f.code}</div>
+        </div>
+      </div>
+      <div style="clear:both;margin-top:10px;display:flex;gap:6px">
+        <button class="btn btn-danger" style="font-size:12px;padding:6px 12px;flex:1;justify-content:center" onclick="retirerDepuisRecherche('${f.pid}','${f.id}')">Marquer sorti en rayon</button>
+        <button class="btn" style="font-size:12px;padding:6px 10px" onclick="toggleEdit('${f.id}')">Modifier</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.retirerDepuisRecherche = async function(pid, prodId) {
+  await window.retirerProduit(pid, prodId);
+  setTimeout(() => window.doSearch(), 600);
+}
+
+// ==========================================
+// PICKING
+// ==========================================
+let pickingList = [];
+let pickingCodeReader = null;
+let pickingScanning = false;
+let pickingDebounceTimer = null;
+
+window.debouncePicking = function() {
+  clearTimeout(pickingDebounceTimer);
+  const q = document.getElementById('picking-input').value.trim();
+  if (!q || q.length < 2) return;
+  pickingDebounceTimer = setTimeout(() => addPickingItem(false), 600);
+}
+
+window.addPickingItem = function(clearInput = true) {
+  clearTimeout(pickingDebounceTimer);
+  const input = document.getElementById('picking-input');
+  const q = input.value.trim();
+  if (!q || q.length < 2) return;
+  if (pickingList.some(i => i.query === q)) { if(clearInput) input.value = ''; return; }
+  const results = searchInPalettes(q);
+  results.forEach(r => {
+    if (!pickingList.some(i => i.prodId && i.prodId === r.prodId)) {
+      pickingList.push({ query: q, done: false, ...r });
+    }
+  });
+  if (clearInput) input.value = '';
+  renderPickingResult();
+}
+
+window.addPickingCode = function(code) {
+  if (pickingList.some(i => i.query === code)) return;
+  const results = searchInPalettes(code);
+  results.forEach(r => {
+    if (!pickingList.some(i => i.prodId && i.prodId === r.prodId)) {
+      pickingList.push({ query: code, done: false, ...r });
+    }
+  });
+  renderPickingResult();
+}
+
+function searchInPalettes(q) {
+  const ql = q.toLowerCase();
+  const results = [];
+  for (const pid of Object.keys(palettes)) {
+    const prods = palettes[pid].produits || [];
+    for (const pr of prods) {
+      if (!pr.sorti && (
+        pr.name.toLowerCase().includes(ql) ||
+        pr.code.toLowerCase().includes(ql) ||
+        (pr.brand||''). toLowerCase().includes(ql)
+      )) {
+        results.push({ found: true, pid, prodId: pr.id, name: pr.name, qty: pr.qty, cond: pr.cond, image: pr.image||null, code: pr.code, heure: pr.heure, ajoutePar: pr.ajoutePar });
+      }
+    }
+  }
+  if (results.length) return results;
+  return [{ found: false, pid: null, prodId: null, name: q, qty: null, cond: null, image: null, code: q, heure: null, ajoutePar: null }];
+}
+
+function renderPickingResult() {
+  const container = document.getElementById('picking-result');
+  const countEl = document.getElementById('picking-count');
+  if (!pickingList.length) {
+    container.innerHTML = '';
+    countEl.textContent = '';
+    return;
+  }
+  const total = pickingList.length;
+  const done = pickingList.filter(i => i.done).length;
+  countEl.textContent = done + '/' + total + ' récupérés';
+
+  // Grouper par palette
+  const byPalette = {};
+  const notFound = [];
+  pickingList.forEach(item => {
+    if (item.found && item.pid) {
+      if (!byPalette[item.pid]) byPalette[item.pid] = [];
+      byPalette[item.pid].push(item);
+    } else {
+      notFound.push(item);
+    }
+  });
+
+  let html = '';
+
+  // Palettes avec produits
+  Object.keys(byPalette).sort().forEach(pid => {
+    const items = byPalette[pid];
+    const palLabel = palettes[pid]?.label || pid;
+    const allDone = items.every(i => i.done);
+    html += `<div class="card" style="margin-bottom:10px;${allDone ? 'opacity:0.6' : ''}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div>
+          <span style="font-size:16px;font-weight:800">${palLabel}</span>
+          ${palettes[pid]?.label ? `<span style="font-size:11px;color:#aaa;font-family:monospace;margin-left:6px">${pid}</span>` : ''}
+        </div>
+        <span class="badge badge-blue">${items.filter(i=>!i.done).length} à prendre</span>
+      </div>`;
+    items.forEach(item => {
+      const imgHtml = item.image
+        ? `<img src="${item.image}" style="width:36px;height:36px;object-fit:contain;border-radius:6px;background:#f9fafb;border:1px solid #eee;flex-shrink:0" />`
+        : `<div style="width:36px;height:36px;border-radius:6px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">📦</div>`;
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0">
+        <input type="checkbox" ${item.done ? 'checked' : ''} onchange="togglePickingItem('${item.query}','${item.prodId||''}' )" style="width:20px;height:20px;flex-shrink:0;cursor:pointer" />
+        ${imgHtml}
+        <div style="flex:1;min-width:0;${item.done ? 'opacity:0.4' : ''}">
+          <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${item.done?'text-decoration:line-through':'' }">${item.name}</div>
+          <div style="font-size:11px;color:#888">${item.qty ? item.qty+' '+item.cond+' · ' : ''}${item.heure ? item.heure : ''}</div>
+          <div style="font-size:10px;color:#bbb;font-family:monospace">${item.code||''}</div>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+
+  // Produits non trouvés
+  if (notFound.length) {
+    html += `<div class="card" style="margin-bottom:10px;border-color:#fca5a5">
+      <div style="font-size:13px;font-weight:700;color:#dc2626;margin-bottom:8px">Introuvable en palette</div>`;
+    notFound.forEach(item => {
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0">
+        <div style="width:20px;height:20px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px">?</div>
+        <div style="font-size:13px;color:#dc2626">${item.name}</div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+window.togglePickingItem = function(query, prodId) {
+  const item = pickingList.find(i => prodId ? i.prodId === prodId : i.query === query);
+  if (item) { item.done = !item.done; renderPickingResult(); }
+}
+
+window.clearPicking = function() {
+  if (pickingList.length && !confirm('Vider toute la liste ?')) return;
+  pickingList = [];
+  renderPickingResult();
+}
+
+window.startPickingCamera = async function() {
+  document.getElementById('picking-video-wrap').style.display = 'block';
+  try {
+    const { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } = await import('https://esm.sh/@zxing/library@0.19.1');
+    const hints = new Map();
+    hints.set(DecodeHintType.TRY_HARDER, true);
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+      BarcodeFormat.EAN_13, BarcodeFormat.EAN_8,
+      BarcodeFormat.CODE_128, BarcodeFormat.CODE_39,
+      BarcodeFormat.UPC_A, BarcodeFormat.UPC_E
+    ]);
+    pickingCodeReader = new BrowserMultiFormatReader(hints, 300);
+    pickingScanning = true;
+    await pickingCodeReader.decodeFromVideoDevice(null, 'picking-video', (result, err) => {
+      if (result && pickingScanning) {
+        const code = result.getText();
+        playBeep();
+        addPickingCode(code);
+        // Continuer à scanner (ne pas stopper automatiquement)
+      }
+    });
+    // Torche
+    const stream = document.getElementById('picking-video').srcObject;
+    if (stream && torchMode !== 'off') {
+      const track = stream.getVideoTracks()[0];
+      if (torchMode === 'auto') await applyTorch(track, true);
+    }
+  } catch(e) {
+    stopPickingCamera();
+  }
+}
+
+window.stopPickingCamera = function() {
+  pickingScanning = false;
+  if (pickingCodeReader) { try { pickingCodeReader.reset(); } catch(e){} pickingCodeReader = null; }
+  document.getElementById('picking-video-wrap').style.display = 'none';
+}
+
+function showPageInternal(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name !== 'scanner') stopCamera();
+  if (name !== 'recherche') stopSearchCamera();
+  if (name !== 'picking') stopPickingCamera();
+  currentPage = name;
+}
+
+window.showPage = function(name) {
+  if (name === currentPage) return;
+  showPageInternal(name);
+  pageHistory.push(name);
+  history.pushState(null, '', location.href);
+}
+</script>
+</body>
+</html>
